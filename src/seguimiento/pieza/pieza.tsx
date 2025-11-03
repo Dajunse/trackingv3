@@ -2,7 +2,7 @@
 
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-
+import { useParams } from "react-router-dom";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -79,23 +79,58 @@ function getMockByOp(op: string): Pieza {
   };
 }
 
+interface ProyectoQueryResult {
+  proyecto: {
+    id: string;
+    plano: string;
+    proyecto: string;
+    tipo: string;
+    material: string;
+    categoria: string;
+    operacion: string;
+  } | null;
+}
+
 // ---------- Página ----------
 export default function PiezaDashboard({ params }: { params: { op: string } }) {
+  const { id } = useParams();
+
   const GET_DATOS = gql`
-    query GetDatos {
-      procesos {
+    query GetProyecto($id: ID!) {
+      proyecto(id: $id) {
         id
-        nombre
+        plano
+        proyecto
+        tipo
+        material
+        categoria
+        operacion
+        procesos {
+          proceso {
+            nombre
+            tiempo
+          }
+        }
       }
     }
   `;
 
-  const { loading: loading, error: error, data: data } = useQuery(GET_DATOS);
+  const {
+    loading: loading,
+    error: error,
+    data: data,
+  } = useQuery<ProyectoQueryResult>(GET_DATOS, {
+    variables: {
+      id: id,
+    },
+  });
+
+  const proyecto = data?.proyecto;
 
   const showData = () => {
     console.log(loading);
     console.log(error);
-    console.log(data);
+    console.log(proyecto);
   };
 
   const pieza = useMemo(
@@ -152,19 +187,19 @@ export default function PiezaDashboard({ params }: { params: { op: string } }) {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Operación</span>
-              <span className="font-medium">{pieza.op}</span>
+              <span className="font-medium">{proyecto?.operacion}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Plano</span>
-              <span className="font-medium">{pieza.plano}</span>
+              <span className="font-medium">{proyecto?.plano}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Proyecto</span>
-              <span className="font-medium">{pieza.proyecto}</span>
+              <span className="font-medium">{proyecto?.proyecto}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Categoría</span>
-              <Badge variant="outline">{pieza.categoria || "—"}</Badge>
+              <Badge variant="outline">{proyecto?.categoria || "—"}</Badge>
             </div>
 
             <Separator />

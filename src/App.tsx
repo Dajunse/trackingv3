@@ -14,7 +14,7 @@ function App() {
         <Route path="/maquinadocnc" element={<EstacionMaquinado />} />
         <Route path="/intake" element={<IntakeDePlanos />} />
         <Route
-          path="/pieza"
+          path="/pieza/:id"
           element={
             <PiezaDashboard
               params={{
