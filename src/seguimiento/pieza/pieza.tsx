@@ -1,5 +1,3 @@
-"use client";
-
 import { gql } from "@apollo/client";
 import { useQuery, useSubscription } from "@apollo/client/react";
 import { useParams } from "react-router-dom";

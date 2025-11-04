@@ -16,7 +16,7 @@ interface BouncingSphereProps {
 
 // 2. Componente de la esfera animada
 const BouncingSphere: React.FC<BouncingSphereProps> = ({
-  color = "#7575ffff", // Color por defecto: Rojo Tomate
+  color = "#3a3f6eff", // Color por defecto: Rojo Tomate
   radius = 1,
 }) => {
   // Referencia a la malla de la esfera para manipular su posición
@@ -76,7 +76,7 @@ const EsferaRebotando: React.FC = () => {
       <pointLight position={[10, 10, 10]} intensity={5} color="#ffffff" />
 
       {/* 3. Luz Puntual de Relleno (Contraluz) */}
-      <pointLight position={[-10, -10, -10]} intensity={3} color="#7575ffff" />
+      <pointLight position={[-10, -10, -10]} intensity={3} color="#afafaf" />
 
       {/* La esfera que rebota */}
       <BouncingSphere color="#1e90ff" radius={1.5} />

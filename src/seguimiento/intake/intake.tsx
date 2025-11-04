@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
