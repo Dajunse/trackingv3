@@ -23,8 +23,7 @@ import {
 } from "@/components/ui/table";
 import { CheckCircle2, Clock, Circle } from "lucide-react";
 
-// ---------- Mock (simulación de datos) ----------
-// En el futuro, esto vendrá de tu API usando el parámetro "op".
+// ---------- Tipos ----------
 
 type DisplayPaso = {
   key: string;
@@ -35,24 +34,26 @@ type DisplayPaso = {
 
 type Estado = "pending" | "in_progress" | "done";
 
-interface ProcesoProyecto {
+interface ProcesoOperacion {
   proceso: {
     nombre: string;
   };
-  tiempo: number | null; // DecimalField en Python se mapea a number en JS
-  estado: Estado; // El ENUM/ChoiceField de tu modelo Django
+  tiempoEstimado: number | null; // Usamos el campo de tu query
+  estado: Estado;
 }
 
-interface ProyectoQueryResult {
-  proyecto: {
-    id: string;
-    plano: string;
-    proyecto: string;
-    tipo: string;
-    material: string;
-    categoria: string;
-    operacion: string;
-    procesos: ProcesoProyecto[];
+// 💡 AJUSTE DE TIPO: Esperamos un objeto 'operacion' en la raíz
+interface OperacionQueryResult {
+  operacion: {
+    // Los campos de la operación en sí
+    workorder: {
+      plano: string;
+      categoria: string;
+      proyecto: {
+        proyecto: string;
+      };
+    };
+    procesos: ProcesoOperacion[];
   } | null;
 }
 
@@ -60,35 +61,45 @@ interface ProyectoQueryResult {
 export default function PiezaDashboard() {
   const { id } = useParams();
 
+  // 💡 AJUSTE DE QUERY: La query ya estaba correcta para la nueva estructura (operacion(id: $id) { ... })
   const GET_DATOS = gql`
     query GetOperacion($id: ID!) {
       operacion(id: $id) {
-        id
-        plano
-        proyecto
         operacion
+        workorder {
+          plano
+          categoria
+          proyecto {
+            proyecto
+          }
+        }
         procesos {
+          tiempoEstimado
+          estado
           proceso {
             nombre
           }
-          tiempo
-          estado
         }
       }
     }
   `;
 
+  // 💡 AJUSTE DE USEQUERY: Usamos el nuevo tipo OperacionQueryResult
   const {
     loading: loading,
     error: error,
     data: data,
-  } = useQuery<ProyectoQueryResult>(GET_DATOS, {
-    variables: {
-      id: id,
-    },
-  });
+  } = useQuery<OperacionQueryResult & { operacion: { operacion: string } }>(
+    GET_DATOS,
+    {
+      variables: {
+        id: id,
+      },
+    }
+  );
 
-  const proyecto = data?.proyecto;
+  // 💡 AJUSTE DE DATA: Obtenemos directamente 'operacion' del resultado
+  const operacion = data?.operacion;
 
   const showData = () => {
     console.log(loading);
@@ -97,16 +108,17 @@ export default function PiezaDashboard() {
   };
 
   const displayProcesos: DisplayPaso[] = useMemo(() => {
-    if (!proyecto || !proyecto.procesos) return [];
+    // 💡 AJUSTE DE DATA: Validamos 'operacion' en lugar de 'proyecto'
+    if (!operacion || !operacion.procesos) return [];
 
-    return proyecto.procesos.map((p, index) => ({
+    return operacion.procesos.map((p, index) => ({
       key: `${p.proceso.nombre}-${index}`,
       label: p.proceso.nombre,
-      // Asegúrate de manejar `null` o convertir a `number`
-      minutos: p.tiempo ? parseFloat(p.tiempo.toString()) : 0,
+      // 💡 AJUSTE DE CAMPO: Usamos 'tiempoEstimado' de la query
+      minutos: p.tiempoEstimado ? parseFloat(p.tiempoEstimado.toString()) : 0,
       estado: p.estado,
     }));
-  }, [proyecto]);
+  }, [operacion]);
 
   const totals = useMemo(() => {
     const DONECount = displayProcesos.filter((p) => p.estado === "done").length;
@@ -133,6 +145,48 @@ export default function PiezaDashboard() {
       spentMinutes: Math.round(spentMinutes), // Redondea los minutos totales
     };
   }, [displayProcesos]);
+
+  // Si no hay data para mostrar, se mantiene la UX de carga/error
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl p-6 text-center">
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-lg text-muted-foreground mt-20"
+        >
+          Cargando datos de la operación **{id}**...
+        </motion.p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-6xl p-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-red-600 mb-4">
+          Error de Conexión 🚨
+        </h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          Hubo un problema al cargar la información: {error.message}
+        </p>
+      </div>
+    );
+  }
+
+  // Fallback si no encuentra la operación
+  if (!operacion) {
+    return (
+      <div className="mx-auto max-w-6xl p-6">
+        <h1 className="text-2xl font-semibold tracking-tight mb-4">
+          Pieza no encontrada 🔎
+        </h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          No se encontró la operación con el ID: **{id}**
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -161,19 +215,27 @@ export default function PiezaDashboard() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Operación</span>
-              <span className="font-medium">{proyecto?.operacion}</span>
+              {/* 💡 AJUSTE DE DATA: operacion.operacion */}
+              <span className="font-medium">{operacion.operacion}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Plano</span>
-              <span className="font-medium">{proyecto?.plano}</span>
+              {/* 💡 AJUSTE DE DATA: operacion.workorder.plano */}
+              <span className="font-medium">{operacion.workorder.plano}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Proyecto</span>
-              <span className="font-medium">{proyecto?.proyecto}</span>
+              {/* 💡 AJUSTE DE DATA: operacion.workorder.proyecto.proyecto */}
+              <span className="font-medium">
+                {operacion.workorder.proyecto.proyecto}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Categoría</span>
-              <Badge variant="outline">{proyecto?.categoria || "—"}</Badge>
+              {/* 💡 AJUSTE DE DATA: operacion.workorder.categoria */}
+              <Badge variant="outline">
+                {operacion.workorder.categoria || "—"}
+              </Badge>
             </div>
 
             <Separator />

@@ -3,13 +3,7 @@ import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import {
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-} from "lucide-react";
+import { Search } from "lucide-react";
 
 import {
   Card,
@@ -40,21 +34,49 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
-/* ----------------- Tipos (compatibles con tu página de detalle) ----------------- */
+/* ----------------- Tipos ----------------- */
 type Estado = "done" | "in_progress" | "pending";
 type Paso = { key: string; label: string; minutos: number; estado: Estado };
+
 type Pieza = {
-  op: string; // Mapea a id en GraphQL
+  id: string | number; // 💡 Simplicado: ID numérico para el detalle
+  op: string;
   plano: string;
   proyecto: string;
   categoria?: "A" | "B" | "C";
   procesos: Paso[];
-  createdAt?: string; // ISO para ordenar por fecha si lo deseas
+  createdAt?: string;
 };
 
-/* ----------------- Mocks de ejemplo (Usados como fallback) ----------------- */
+interface ProcesoOperacion {
+  proceso: {
+    nombre: string;
+  };
+  tiempoEstimado: number | null;
+  estado: Estado;
+}
+
+interface WorkOrderQueryResult {
+  operaciones:
+    | {
+        id: string | number; // El ID numérico del GraphQL
+        operacion: string;
+        workorder: {
+          plano: string;
+          categoria: string;
+          proyecto: {
+            proyecto: string;
+          };
+        };
+        procesos: ProcesoOperacion[];
+      }[]
+    | null;
+}
+
+/* ----------------- Mocks de ejemplo ----------------- */
 const MOCK_PIEZAS: Pieza[] = [
   {
+    id: "1",
     op: "OP-3272-0001",
     plano: "3272-A-001",
     proyecto: "3272",
@@ -86,6 +108,7 @@ const MOCK_PIEZAS: Pieza[] = [
     ],
   },
   {
+    id: "2",
     op: "OP-5001-0007",
     plano: "5001-B-220",
     proyecto: "5001",
@@ -107,6 +130,7 @@ const MOCK_PIEZAS: Pieza[] = [
     ],
   },
   {
+    id: "3",
     op: "OP-DEMO-0001",
     plano: "1000-Z-015",
     proyecto: "1000",
@@ -133,6 +157,7 @@ const MOCK_PIEZAS: Pieza[] = [
     ],
   },
   {
+    id: "4",
     op: "OP-4200-0033",
     plano: "4200-C-110",
     proyecto: "4200",
@@ -196,77 +221,61 @@ function categoriaBadge(cat?: Pieza["categoria"]) {
   return <Badge variant={variants[cat]}>{cat}</Badge>;
 }
 
-interface ProcesoProyecto {
-  proceso: {
-    nombre: string;
-  };
-  tiempo: number | null; // DecimalField en Python se mapea a number en JS
-  estado: Estado; // El ENUM/ChoiceField de tu modelo Django
-}
-
-// 💡 AJUSTE DE TIPO: Esperamos un array de "proyectos"
-interface WorkOrderQueryResult {
-  proyectos:
-    | {
-        id: string; // Mapea a Pieza.op
-        plano: string;
-        proyecto: string;
-        tipo: string;
-        material: string;
-        categoria: string; // Mapea a Pieza.categoria
-        operacion: string;
-        procesos: ProcesoProyecto[];
-      }[]
-    | null;
-}
-
 /* ----------------- Página ----------------- */
 export default function PiezasDashboard() {
   const GET_DATOS = gql`
-    query Getworkorders {
-      workorders {
-        tipo
-        material
-        categoria
+    query {
+      operaciones {
+        id
+        operacion
+        workorder {
+          plano
+          categoria
+          proyecto {
+            proyecto
+          }
+        }
+        procesos {
+          tiempoEstimado
+          estado
+          proceso {
+            nombre
+          }
+        }
       }
     }
   `;
 
   const { loading, error, data } = useQuery<WorkOrderQueryResult>(GET_DATOS);
 
-  // 💡 AJUSTE 1: Mapear la data de GraphQL al tipo Pieza para mantener la compatibilidad
+  // Mapear la data de GraphQL (operaciones) al tipo Pieza
   const apiPiezas: Pieza[] = useMemo(() => {
-    if (loading || error || !data?.proyectos) {
+    if (loading || error || !data?.operaciones) {
       return [];
     }
 
-    // Transformación para que los campos de GraphQL coincidan con el tipo Pieza
-    return data.proyectos.map((p) => {
+    return data.operaciones.map((op) => {
       // Mapeamos los procesos
-      const procesos: Paso[] = p.procesos.map((pr) => ({
-        key: pr.proceso.nombre.toLowerCase().replace(/\s/g, "_"), // Generar una clave simple
+      const procesos: Paso[] = op.procesos.map((pr) => ({
+        key: pr.proceso.nombre.toLowerCase().replace(/\s/g, "_"),
         label: pr.proceso.nombre,
-        minutos: pr.tiempo || 0, // Usar 0 si es null
+        minutos: pr.tiempoEstimado || 0,
         estado: pr.estado,
       }));
 
       return {
-        op: p.id, // Usamos 'id' de GraphQL como 'op'
-        plano: p.plano,
-        proyecto: p.proyecto,
-        categoria: p.categoria as Pieza["categoria"], // Asumimos que es compatible
+        id: op.id.toString(), // Usamos el ID de la base para el enlace
+        op: op.operacion,
+        plano: op.workorder.plano,
+        proyecto: op.workorder.proyecto.proyecto,
+        categoria: op.workorder.categoria as Pieza["categoria"],
         procesos: procesos,
-        // Si el backend tuviera createdAt: p.createdAt
       } as Pieza;
     });
   }, [data, loading, error]);
 
-  // 💡 AJUSTE 2: Usar los mocks SOLO si no hay data de la API (y no hay error, si hay error mostramos info)
+  // Usar los mocks SOLO si no hay data de la API (y no hay error, si hay error mostramos info)
   const finalPiezas = apiPiezas.length > 0 ? apiPiezas : MOCK_PIEZAS;
-
-  const showData = () => {
-    console.log(data); // No se usa, se comenta
-  };
 
   const [search, setSearch] = useState("");
   const [proyecto, setProyecto] = useState<string>("all");
@@ -279,13 +288,13 @@ export default function PiezasDashboard() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
 
-  // 💡 AJUSTE 3: Generar la lista de proyectos únicos desde la data final
+  // Generar la lista de proyectos únicos desde la data final
   const proyectosUnicos = useMemo(
     () => Array.from(new Set(finalPiezas.map((p) => p.proyecto))).sort(),
     [finalPiezas]
   );
 
-  // 💡 AJUSTE 4: Filtrar sobre la data final
+  // Filtrar sobre la data final
   const filtered = useMemo(() => {
     let rows = finalPiezas.map((p) => ({ pieza: p, stats: computeStats(p) }));
 
@@ -333,7 +342,7 @@ export default function PiezasDashboard() {
   const pageSafe = Math.min(page, totalPages);
   const slice = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
 
-  // 💡 Manejo de estados de carga y error para el UX
+  // Manejo de estados de carga y error para el UX
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl p-6 text-center">
@@ -371,7 +380,6 @@ export default function PiezasDashboard() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-2xl font-semibold tracking-tight"
-          onClick={showData}
         >
           Piezas
         </motion.h1>
@@ -419,7 +427,6 @@ export default function PiezasDashboard() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {/* 💡 AJUSTE 5: Usar proyectosUnicos */}
                 {proyectosUnicos.map((p) => (
                   <SelectItem key={p} value={p}>
                     {p}
@@ -498,7 +505,6 @@ export default function PiezasDashboard() {
               <CardDescription>{total} pieza(s) encontradas</CardDescription>
             </div>
             <Button variant="outline" size="sm" className="gap-2">
-              <Filter className="h-4 w-4" />
               Limpiar filtros
             </Button>
           </div>
@@ -509,10 +515,7 @@ export default function PiezasDashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap">
-                    OP
-                    <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-50 align-text-top" />
-                  </TableHead>
+                  <TableHead className="whitespace-nowrap">OP</TableHead>
                   <TableHead>Plano</TableHead>
                   <TableHead>Proyecto</TableHead>
                   <TableHead className="text-center">Categoría</TableHead>
@@ -560,9 +563,8 @@ export default function PiezasDashboard() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="sm">
-                        <Link to={`/pieza/${encodeURIComponent(pieza.op)}`}>
-                          Ver detalle
-                        </Link>
+                        {/* Usamos el ID de la base para el enlace */}
+                        <Link to={`/pieza/${pieza.id}`}>Ver detalle</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -608,7 +610,7 @@ export default function PiezasDashboard() {
                   disabled={pageSafe <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  {/* <ChevronLeft className="h-4 w-4" /> */}
                 </Button>
                 <Button
                   variant="outline"
@@ -616,7 +618,7 @@ export default function PiezasDashboard() {
                   disabled={pageSafe >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  {/* <ChevronRight className="h-4 w-4" /> */}
                 </Button>
               </div>
             </div>
