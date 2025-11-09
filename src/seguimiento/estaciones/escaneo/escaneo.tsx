@@ -147,8 +147,8 @@ export default function ScanStation() {
     fetchPolicy: "cache-and-network",
   });
 
-  const procesoIdStr = dataE?.usuario?.proceso?.id; // String ID o undefined
-  const proceso: number = parseInt(procesoIdStr || "0");
+  const procesoId = dataE?.usuario?.proceso?.id; // String ID o undefined
+
   const operacion = workOrder; // Usamos el workOrder escaneado como ID de la Operacion
 
   // 2. Query de Proceso Específico (Se ejecuta automáticamente al tener IDs válidos)
@@ -160,12 +160,8 @@ export default function ScanStation() {
       ) {
         id
         estado
-        horaInicio
-        horaFin
         tiempoEstimado
-        tiempoRealCalculado
         proceso {
-          id
           nombre
         }
       }
@@ -180,11 +176,11 @@ export default function ScanStation() {
   } = useQuery<ProcesoOpQueryResult>(GET_PROCESO, {
     variables: {
       operacion: operacion,
-      procesoId: proceso,
+      procesoId: procesoId,
     },
     // Solo se ejecuta si el operador está bloqueado y tenemos ambos IDs válidos
-    skip: !locked || !operacion || !proceso,
-    fetchPolicy: "network-only", // Siempre obtener la data más fresca
+    //skip: !locked || !operacion || !proceso,
+    //fetchPolicy: "network-only", // Siempre obtener la data más fresca
   });
 
   const procesoEspecifico = dataP?.procesoOpPorOperacionYProceso;
@@ -345,7 +341,7 @@ export default function ScanStation() {
     }
 
     // 2. Validar que tengamos el ID de Proceso del Usuario
-    if (!proceso) {
+    if (!procesoId) {
       addScan("error", "El empleado no tiene un Proceso de trabajo asignado.");
       return;
     }
@@ -416,7 +412,7 @@ export default function ScanStation() {
     });
     console.log("2. Resultado de Query Empleado (dataE):", dataE);
     //console.log("Datos de usuario para debug:", dataE?.usuario?.proceso.id);
-    console.log("Datos de usuario para debug:", proceso);
+    console.log("Datos de usuario para debug:", procesoId);
     console.log("3. Resultado de Query Proceso Específico (dataP):", dataP);
     console.log("4. Proceso a actuar (procesoEspecifico):", procesoEspecifico);
   }
@@ -562,9 +558,9 @@ export default function ScanStation() {
         {/* Panel de Estado y Lógica */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Estado del Proceso ({proceso || "N/A"})</CardTitle>
+            <CardTitle>Estado del Proceso ({procesoId || "N/A"})</CardTitle>
             <CardDescription>
-              {proceso
+              {procesoId
                 ? `Buscando estado para el proceso del operador: ${dataE?.usuario?.proceso?.nombre}`
                 : "Bloquea un operador para ver su proceso de trabajo."}
             </CardDescription>
