@@ -140,7 +140,7 @@ export default function ScanStation() {
     data: dataE,
     loading: loadingE,
     error: errorE,
-    refetch: refetchE,
+    //refetch: refetchE,
   } = useQuery<EmpleadoQueryResult>(GET_USUARIO, {
     variables: { numero: employeeId },
     //skip: !employeeId || !locked, // Solo buscar si está bloqueado y hay ID
@@ -230,6 +230,8 @@ export default function ScanStation() {
   const [finalizarProcesoOp, { loading: loadingF, error: errorF }] =
     useMutation(FINALIZAR_PROCESO);
 
+  console.log(errorI);
+  console.log(errorF);
   // ------------------------- Lógica de Scaneo y Flujo -------------------------
 
   const handleScanAction = async () => {
