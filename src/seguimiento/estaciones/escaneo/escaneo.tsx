@@ -296,20 +296,20 @@ export default function ScanStation() {
   };
 
   const handleLockOperator = () => {
-    if (!employeeId || loadingE) {
-      return alert("Número de empleado no válido o cargando.");
-    }
+    // if (!employeeId || loadingE) {
+    //   return alert("Número de empleado no válido o cargando.");
+    // }
     if (errorE) {
-      return alert("Error al buscar empleado. Verifica el número.");
+      //return alert("Error al buscar empleado. Verifica el número.");
     }
     if (!dataE?.usuario) {
-      return alert("Empleado no encontrado.");
+      //return alert("Empleado no encontrado.");
     }
-    if (!dataE.usuario.proceso) {
-      return alert(
-        `Empleado ${dataE.usuario.nombre} no tiene un Proceso de trabajo asignado.`
-      );
-    }
+    // if (!dataE.usuario.proceso) {
+    //   return alert(
+    //     `Empleado ${dataE.usuario.nombre} no tiene un Proceso de trabajo asignado.`
+    //   );
+    // }
 
     setLocked(true);
     setTimeout(() => woInputRef.current?.focus(), 0);
@@ -330,6 +330,16 @@ export default function ScanStation() {
       status,
       note,
     };
+
+    // Imprimir los datos del escaneo en la consola
+    console.log("Registro de Escaneo:", {
+      employeeId: employeeId,
+      workOrder: workOrder,
+      status: status,
+      note: note,
+      timestamp: item.ts,
+    });
+
     setRecent((prev) => [item, ...prev].slice(0, 200));
     setWorkOrder("");
     setPage(1);
@@ -338,6 +348,13 @@ export default function ScanStation() {
 
   function handleSubmitScan(e?: React.FormEvent) {
     e?.preventDefault();
+
+    console.log("➡️ Captura en Submit:", {
+      employeeId: employeeId,
+      workOrder: workOrder,
+      locked: locked,
+    });
+
     if (!locked) return handleLockOperator();
 
     // 1. Validar el formato de la Operación
@@ -411,16 +428,8 @@ export default function ScanStation() {
     estadoColor = "bg-emerald-100 text-emerald-600";
 
   function showData() {
-    console.log("--- DEBUG DATA START ---");
-    console.log("1. Input Actual (employeeId, workOrder):", {
-      employeeId,
-      workOrder,
-    });
-    console.log("2. Resultado de Query Empleado (dataE):", dataE);
-    //console.log("Datos de usuario para debug:", dataE?.usuario?.proceso.id);
-    console.log("Datos de usuario para debug:", procesoId);
-    console.log("3. Resultado de Query Proceso Específico (dataP):", dataP);
-    console.log("4. Proceso a actuar (procesoEspecifico):", procesoEspecifico);
+    console.log(employeeId);
+    console.log(workOrder);
   }
 
   return (
@@ -459,7 +468,7 @@ export default function ScanStation() {
                   <Input
                     ref={empInputRef}
                     inputMode="numeric"
-                    disabled={locked || loadingE}
+                    //disabled={locked || loadingE}
                     placeholder="Ej. 1234"
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value.trim())}
