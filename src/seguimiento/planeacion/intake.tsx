@@ -326,16 +326,58 @@ export default function IntakeDePlanos() {
         {
           method: "POST",
           body: formData,
+          // 💡 Importante: Indicar que esperamos un PDF, no JSON
+          headers: {
+            // No establezcas Content-Type aquí; FormData lo hace automáticamente
+            Accept: "application/json, application/pdf", // Indicamos que podemos recibir PDF
+          },
         }
       );
 
       if (response.ok) {
-        toast.success("Plano y procesos guardados exitosamente");
-        // resetForm();
+        // 1. Obtener el nombre de archivo sugerido del header (si la API lo envía)
+        const contentDisposition = response.headers.get("Content-Disposition");
+        let filename = "plano_con_qr.pdf";
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^"]+)"?/i);
+          if (match && match[1]) {
+            filename = match[1];
+          }
+        }
+
+        // 2. Obtener el contenido del PDF como un Blob
+        const blob = await response.blob();
+
+        // 3. Crear una URL local para el Blob
+        const url = window.URL.createObjectURL(blob);
+
+        // 4. Crear un enlace (<a>) en la memoria y simular un click
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+
+        // 5. Limpiar el enlace y la URL temporal
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast.success(`Plano con QR (${filename}) descargado exitosamente`);
+        // resetForm(); // Opcional, descomentar si deseas limpiar el formulario inmediatamente
       } else {
-        const errorData = await response.json();
-        console.error("Error del servidor (DRF):", errorData);
-        toast.error("Error al guardar");
+        // Si no fue exitoso, el servidor probablemente envió JSON con errores
+        // Debemos leer la respuesta como texto/JSON para mostrar el error
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          console.error("Error del servidor (DRF):", errorData);
+          toast.error("Error al guardar: " + JSON.stringify(errorData));
+        } else {
+          console.error("Error del servidor: Respuesta no es JSON.");
+          toast.error(
+            "Error al guardar: El servidor no devolvió una respuesta válida."
+          );
+        }
       }
     } catch (error) {
       console.error("Error de conexión:", error);
