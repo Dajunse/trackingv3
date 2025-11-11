@@ -80,7 +80,7 @@ function FlowImpactChart() {
   const volumes = [100, 86, 78, 74, 70]; // grosor relativo entre etapas
 
   // Geometría
-  const { width, height, paddingX, yTop, yBottom, paths } = useMemo(() => {
+  const { width, height, paddingX, paths } = useMemo(() => {
     const width = 1100;
     const height = 320;
     const paddingX = 80;
