@@ -25,6 +25,7 @@ type Machine = {
   status: MachineStatus;
   startedAt?: string | null; // ISO string; si running (horaInicio)
   cycleTargetMin?: number; // X (minutos) por máquina (tiempoEstimado)
+  operationId?: string;
 };
 
 // --- Tipos de GraphQL (Deducción basada en el query) ---
@@ -145,6 +146,7 @@ function transformDataToMachines(data: ProcesosOpQueryResult): Machine[] {
         status: status,
         startedAt: (item as any).horaInicio || null,
         cycleTargetMin: item.tiempoEstimado,
+        operationId: item.operacion.operacion,
       };
     });
 }
@@ -334,9 +336,16 @@ function MachineCard({ m }: { m: Machine }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <Row label="Operación">
+        {/* <Row label="Operación">
           {m.piece ? (
             <strong>{m.piece}</strong>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </Row> */}
+        <Row label="Operación (WO)">
+          {m.operationId ? (
+            <strong>{m.operationId}</strong>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}

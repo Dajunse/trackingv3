@@ -51,7 +51,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 /* --------------------------------- Tipos ---------------------------------- */
 type ScanStatus = "ok" | "error" | "warning";
-type ModalActionType = "rechazo" | "pausa" | "problema" | "";
+type ModalActionType = "rechazo" | "pausa" | "problema" | "reanudacion" | "";
 
 interface ScanItem {
   id: string; // uuid-like
@@ -130,6 +130,7 @@ export default function ScanStation() {
   const [workOrder, setWorkOrder] = useState("");
   const [recent, setRecent] = useState<ScanItem[]>(() => readScans());
   const [page, setPage] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
   const PAGE_SIZE = 5;
 
   // --- NUEVOS ESTADOS para el Modal de Motivos ---
@@ -254,8 +255,30 @@ export default function ScanStation() {
   const [finalizarProcesoOp, { loading: loadingF, error: errorF }] =
     useMutation(FINALIZAR_PROCESO);
 
+  // 5. Mutación de REGISTRO DE OBSERVACIÓN (CORREGIDA)
+  const REGISTRAR_OBSERVACION = gql`
+    mutation RegistrarObservacion(
+      $procesoOpId: ID!
+      $tipoRegistro: String!
+      $descripcion: String!
+    ) {
+      registrarObservacion(
+        procesoOpId: $procesoOpId
+        tipoRegistro: $tipoRegistro
+        descripcion: $descripcion
+      ) {
+        id
+        observaciones
+      }
+    }
+  `;
+
+  const [registrarObservacion, { loading: loadingO, error: errorO }] =
+    useMutation(REGISTRAR_OBSERVACION);
+
   console.log(errorI);
   console.log(errorF);
+  console.log(errorO);
 
   // ------------------------- Lógica de Scaneo y Flujo -------------------------
 
@@ -394,38 +417,19 @@ export default function ScanStation() {
 
   // --- NUEVA LÓGICA DE RECHAZO (SCRAP) ---
   const handleScrapAction = async (observaciones: string) => {
-    if (!dataE?.usuario?.id || !procesoEspecifico?.id) {
-      addScan(
-        "error",
-        "Datos de usuario o proceso no encontrados o inválidos (Rechazo)."
-      );
-      return;
-    }
-
-    // Solo se puede marcar como SCRAP si está EN PROGRESO (in_progress)
-    if (procesoEspecifico.estado !== "in_progress") {
-      addScan(
-        "warning",
-        "Solo puedes marcar SCRAP si el proceso está en progreso."
-      );
-      setModalOpen(false);
-      return;
-    }
-
-    const procesoOpId = procesoEspecifico.id;
-    const nuevoEstado = "scrap";
-
     try {
       await finalizarProcesoOp({
         variables: {
-          procesoOpId: procesoOpId,
-          estado: nuevoEstado,
+          procesoOpId: procesoEspecifico?.id,
+          estado: "scrap",
           observaciones: observaciones,
         },
       });
       addScan(
         "error",
-        `Proceso marcado como SCRAP: ${procesoEspecifico.proceso.nombre}`
+        `Proceso marcado como SCRAP: ${
+          procesoEspecifico?.proceso.nombre
+        }. Motivo: ${observaciones.substring(0, 30)}...`
       );
       refetchP(); // Actualizar la vista
     } catch (e: any) {
@@ -437,26 +441,68 @@ export default function ScanStation() {
     }
   };
 
-  // --- LÓGICA DE MODAL DE ACCIÓN ---
-  const openReasonModal = (type: ModalActionType) => {
-    // Si no está bloqueado o no hay WO válido, no puede usar las acciones rápidas
-    if (!locked || !workOrder || !procesoEspecifico) {
+  // --- LÓGICA DE REGISTRO DE ACCIÓN GENÉRICA ---
+  const handleRegisterAction = async (
+    tipoRegistro: string,
+    observaciones: string
+  ) => {
+    if (!procesoEspecifico?.id) {
       addScan(
-        "warning",
-        "Captura un Operador y WO válidos antes de usar esta acción."
-      );
-      return;
-    }
-    // Si no está en progreso, solo se permite en el futuro.
-    if (procesoEspecifico.estado !== "in_progress" && type !== "problema") {
-      addScan(
-        "warning",
-        `La acción '${type}' solo está disponible para procesos 'en progreso'.`
+        "error",
+        "Error: Proceso Op ID no encontrado para registrar la acción."
       );
       return;
     }
 
+    try {
+      await registrarObservacion({
+        variables: {
+          procesoOpId: procesoEspecifico.id,
+          tipoRegistro: tipoRegistro,
+          descripcion: observaciones,
+        },
+      });
+      console.log(loadingO);
+      // --- NUEVA LÓGICA: ACTUALIZAR ESTADO DE PAUSA ---
+      if (tipoRegistro === "PAUSA_INICIO") {
+        setIsPaused(true);
+      } else if (tipoRegistro === "PAUSA_FIN") {
+        setIsPaused(false);
+      }
+      // -------------------------------------------------
+
+      addScan(
+        "warning",
+        `${tipoRegistro.replace(
+          "_",
+          " "
+        )} registrado: ${observaciones.substring(0, 30)}...`
+      );
+      refetchP();
+    } catch (e: any) {
+      console.error(`Error en la mutación ${tipoRegistro}:`, e);
+      addScan(
+        "error",
+        `Error en servidor (${tipoRegistro}): ${e.message.split(":")[0]}`
+      );
+    } finally {
+      setModalOpen(false);
+      setMotivo("");
+    }
+  };
+
+  // --- LÓGICA DE MODAL DE ACCIÓN ---
+  const openReasonModal = (type: ModalActionType) => {
     setModalType(type);
+    setMotivo("");
+    setModalOpen(true);
+
+    if (type === "pausa") {
+      setModalType(isPaused ? "reanudacion" : "pausa");
+    } else {
+      setModalType(type);
+    }
+
     setMotivo("");
     setModalOpen(true);
   };
@@ -472,15 +518,16 @@ export default function ScanStation() {
     if (modalType === "rechazo") {
       handleScrapAction(motivo);
     } else if (modalType === "pausa") {
-      // Lógica FUTURA: Mutación de Pausa
-      addScan("warning", `Pausa registrada (FALTA MUTACIÓN): ${motivo}`);
-      setModalOpen(false);
-      setMotivo("");
+      if (isPaused) {
+        // Si estaba pausado, ahora lo reanudamos
+        handleRegisterAction("PAUSA_FIN", motivo);
+      } else {
+        // Si NO estaba pausado, ahora lo iniciamos
+        handleRegisterAction("PAUSA_INICIO", motivo);
+      }
     } else if (modalType === "problema") {
-      // Lógica FUTURA: Mutación de Problema/Incidente
-      addScan("warning", `Problema reportado (FALTA MUTACIÓN): ${motivo}`);
-      setModalOpen(false);
-      setMotivo("");
+      // El problema sigue siendo un registro simple
+      handleRegisterAction("PROBLEMA", motivo);
     }
   };
 
@@ -683,7 +730,8 @@ export default function ScanStation() {
             )}
             {errorP && (
               <p className="text-center py-4 text-red-500">
-                Error: {errorP.message}
+                Captura el numero de empleado y Work Order válidos para ver el
+                estado del proceso.
               </p>
             )}
 
@@ -768,9 +816,7 @@ export default function ScanStation() {
             variant="destructive"
             className="w-full gap-2"
             onClick={() => openReasonModal("rechazo")}
-            disabled={
-              !procesoEspecifico || procesoEspecifico.estado !== "in_progress"
-            }
+            disabled={!procesoEspecifico}
           >
             <TriangleAlert className="h-4 w-4" /> Registrar rechazo
           </Button>
@@ -783,16 +829,24 @@ export default function ScanStation() {
         {/* --- Pausa --- */}
         <div className="flex flex-col items-center gap-2">
           <Button
-            className="w-full gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
+            // El color puede cambiar si está pausado
+            className={`w-full gap-2 ${
+              isPaused
+                ? "bg-green-500 hover:bg-green-600"
+                : "bg-yellow-500 hover:bg-yellow-600"
+            } text-black`}
             onClick={() => openReasonModal("pausa")}
             disabled={
               !procesoEspecifico || procesoEspecifico.estado !== "in_progress"
             }
           >
-            <PauseCircle className="h-4 w-4" /> Registrar pausa
+            <PauseCircle className="h-4 w-4" />{" "}
+            {isPaused ? "Reanudar proceso" : "Registrar pausa"}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
-            Registra un tiempo de inactividad por descanso o comida.
+            {isPaused
+              ? "Confirma la reanudación para registrar el tiempo inactivo."
+              : "Registra un tiempo de inactividad por descanso o comida."}
           </p>
         </div>
 
@@ -821,14 +875,18 @@ export default function ScanStation() {
           <DialogHeader>
             <DialogTitle>
               {modalType === "rechazo" && "Motivo del rechazo (SCRAP)"}
-              {modalType === "pausa" && "Motivo de la pausa"}
+              {modalType === "pausa" && "Motivo de la pausa (INICIO)"}
+              {modalType === "reanudacion" &&
+                "Motivo de la reanudación (FIN)"}{" "}
               {modalType === "problema" && "Descripción del problema"}
             </DialogTitle>
             <DialogDescription>
               {modalType === "rechazo" &&
                 "Por favor, explica detalladamente por qué la pieza debe ser descartada."}
               {modalType === "pausa" &&
-                "Registra brevemente el motivo de la pausa (ej: 'Descanso', 'Comida', 'Fallo máquina')."}
+                "Registra brevemente el motivo por el cual la operación se detiene (ej: 'Descanso', 'Comida')."}
+              {modalType === "reanudacion" &&
+                "Registra el motivo o simplemente presiona Confirmar para cerrar el tiempo de pausa."}{" "}
               {modalType === "problema" &&
                 "Describe el incidente o alarma detectada. Un supervisor será notificado."}
             </DialogDescription>
