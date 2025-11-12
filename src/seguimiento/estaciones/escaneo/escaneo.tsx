@@ -515,18 +515,18 @@ export default function ScanStation() {
       return;
     }
 
+    // Homologamos las acciones "pausa" y "reanudacion" en un solo bloque
     if (modalType === "rechazo") {
       handleScrapAction(motivo);
-    } else if (modalType === "pausa") {
+    } else if (modalType === "pausa" || modalType === "reanudacion") {
       if (isPaused) {
-        // Si estaba pausado, ahora lo reanudamos
+        // Si el estado es Pausado (y se presionó Reanudar)
         handleRegisterAction("PAUSA_FIN", motivo);
       } else {
-        // Si NO estaba pausado, ahora lo iniciamos
+        // Si el estado NO es Pausado (y se presionó Pausa)
         handleRegisterAction("PAUSA_INICIO", motivo);
       }
     } else if (modalType === "problema") {
-      // El problema sigue siendo un registro simple
       handleRegisterAction("PROBLEMA", motivo);
     }
   };
@@ -829,7 +829,6 @@ export default function ScanStation() {
         {/* --- Pausa --- */}
         <div className="flex flex-col items-center gap-2">
           <Button
-            // El color puede cambiar si está pausado
             className={`w-full gap-2 ${
               isPaused
                 ? "bg-green-500 hover:bg-green-600"
@@ -837,7 +836,9 @@ export default function ScanStation() {
             } text-black`}
             onClick={() => openReasonModal("pausa")}
             disabled={
-              !procesoEspecifico || procesoEspecifico.estado !== "in_progress"
+              !procesoEspecifico ||
+              procesoEspecifico.estado === "done" ||
+              procesoEspecifico.estado === "scrap"
             }
           >
             <PauseCircle className="h-4 w-4" />{" "}
