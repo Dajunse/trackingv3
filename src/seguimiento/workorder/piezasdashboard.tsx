@@ -86,8 +86,11 @@ function computeStats(p: Pieza) {
   const inProgressCount = p.procesos.filter(
     (x) => x.estado === "in_progress"
   ).length;
+  const scrapCount = p.procesos.filter((x) => x.estado === "scrap").length;
+  // ---------------------------------------------
   const total = p.procesos.length;
-  // Manejo de división por cero
+
+  // ... (completedRatio y spentMinutes se mantienen igual)
   const completedRatio =
     total > 0
       ? Math.round(((doneCount + inProgressCount * 0.5) / total) * 100)
@@ -98,8 +101,15 @@ function computeStats(p: Pieza) {
     .reduce((a, b) => a + b.minutos, 0);
 
   let estado: Estado = "pending";
-  if (inProgressCount > 0) estado = "in_progress";
-  if (doneCount === total) estado = "done";
+
+  // 1. PRIORIDAD MÁXIMA: Si hay al menos un proceso en SCRAP, la pieza está SCRAP
+  if (scrapCount > 0) estado = "scrap";
+  // 2. Si no hay SCRAP, chequeamos si está en progreso
+  else if (inProgressCount > 0) estado = "in_progress";
+  // 3. Si no hay SCRAP ni en progreso, chequeamos si está completo
+  else if (doneCount === total) estado = "done";
+
+  // En cualquier otro caso, permanece como "pending"
 
   return { completedRatio, spentMinutes, estado };
 }
@@ -108,6 +118,9 @@ function estadoBadge(estado: Estado) {
   if (estado === "done") return <Badge>Completado</Badge>;
   if (estado === "in_progress")
     return <Badge variant="secondary">En proceso</Badge>;
+  // --- NUEVA LÍNEA: Mostrar SCRAP con estilo de error ---
+  if (estado === "scrap") return <Badge variant="destructive">Rechazada</Badge>;
+  // ------------------------------------------------------
   return <Badge variant="outline">Pendiente</Badge>;
 }
 

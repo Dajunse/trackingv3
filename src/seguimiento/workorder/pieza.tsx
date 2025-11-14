@@ -315,7 +315,7 @@ export default function PiezaDashboard() {
                 } else if (p.estado === "scrap") {
                   icon = <XCircle className="h-4 w-4" />; // Usar XCircle
                   tone = "bg-red-50 border-red-200 text-red-800";
-                  badgeText = "Scrap";
+                  badgeText = "Rechazo";
                 } else {
                   // pending
                   icon = <Circle className="h-4 w-4" />;

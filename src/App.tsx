@@ -2,7 +2,7 @@ import "./App.css";
 import { Routes, Route, HashRouter } from "react-router-dom";
 import Home from "./home";
 import EstacionMaquinado from "./seguimiento/estaciones/maquinadocnc/maquinadocns";
-import IntakeDePlanos from "./seguimiento/planeacion/intake";
+import IntakeDePlanos from "./seguimiento/planeacion/planeacion";
 import PiezaDashboard from "./seguimiento/workorder/pieza";
 import PiezasDashboard from "./seguimiento/workorder/piezasdashboard";
 import { Toaster } from "sonner";
