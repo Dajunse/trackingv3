@@ -47,6 +47,11 @@ const MOCK_PROCESOS: Proceso[] = [
   { id: 1, nombre: "Corte" },
   { id: 2, nombre: "Escuadre" },
   { id: 3, nombre: "Programación CNC" },
+  { id: 4, nombre: "Maquinado CNC" },
+  { id: 5, nombre: "Pailería" },
+  { id: 6, nombre: "Pintura" },
+  { id: 7, nombre: "Inspección / Limpieza / Acabados" },
+  { id: 8, nombre: "Calidad" },
 ];
 
 export default function NewEntryPage() {
