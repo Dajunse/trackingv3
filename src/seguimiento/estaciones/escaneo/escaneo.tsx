@@ -33,9 +33,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  TriangleAlert, // NUEVO: para Rechazo/Scrap
-  PauseCircle, // NUEVO: para Pausa
-  Bug, // NUEVO: para Problema
+  TriangleAlert,
+  PauseCircle,
+  Bug,
 } from "lucide-react";
 
 // NUEVOS COMPONENTES: Modal (Dialog) y Textarea
@@ -48,6 +48,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+
+// Componentes para el Select
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /* --------------------------------- Tipos ---------------------------------- */
 type ScanStatus = "ok" | "error" | "warning";
@@ -62,6 +71,16 @@ interface ScanItem {
   note?: string;
 }
 
+// Tipos para Maquina
+interface Maquina {
+  id: string;
+  nombre: string;
+}
+
+interface MaquinasQueryResult {
+  maquinaPorProceso: Maquina[]; // Cambiado a List[] en el backend
+}
+
 // Tipos de GraphQL (Definidos para mayor seguridad)
 interface ProcesoOp {
   id: string;
@@ -70,7 +89,7 @@ interface ProcesoOp {
   horaFin: string | null;
   tiempoRealCalculado: number | null;
   tiempoEstimado: number | null;
-  observaciones: string | null; // Asumimos que se agregó al type en Strawberry
+  observaciones: string | null;
   proceso: {
     id: string;
     nombre: string;
@@ -83,7 +102,7 @@ interface ProcesoOpQueryResult {
 
 interface EmpleadoQueryResult {
   usuario: {
-    id: string; // Añadido ID aquí para las mutaciones
+    id: string;
     numero: string;
     nombre: string;
     proceso: {
@@ -131,6 +150,12 @@ export default function ScanStation() {
   const [recent, setRecent] = useState<ScanItem[]>(() => readScans());
   const [page, setPage] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
+  // --- NUEVO ESTADO: Máquina seleccionada ---
+  const [maquinaSeleccionadaId, setMaquinaSeleccionadaId] = useState<
+    string | undefined
+  >(undefined);
+  // ------------------------------------------
+
   const PAGE_SIZE = 5;
 
   // --- NUEVOS ESTADOS para el Modal de Motivos ---
@@ -142,7 +167,7 @@ export default function ScanStation() {
   const woInputRef = useRef<HTMLInputElement | null>(null);
   const empInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ... (Query GET_USUARIO se mantiene igual)
+  // 1. Query GET_USUARIO
   const GET_USUARIO = gql`
     query GetUsuario($numero: String!) {
       usuario(numero: $numero) {
@@ -169,7 +194,7 @@ export default function ScanStation() {
   const procesoId = dataE?.usuario?.proceso?.id;
   const operacion = workOrder;
 
-  // ... (Query GET_PROCESO se mantiene igual)
+  // 2. Query GET_PROCESO
   const GET_PROCESO = gql`
     query ObtenerProcesoEspecifico($operacion: String!, $procesoId: ID!) {
       procesoOpPorOperacionYProceso(
@@ -179,6 +204,8 @@ export default function ScanStation() {
         id
         estado
         tiempoEstimado
+        horaInicio
+        tiempoRealCalculado
         proceso {
           nombre
         }
@@ -196,18 +223,47 @@ export default function ScanStation() {
       operacion: operacion,
       procesoId: procesoId,
     },
+    // Solo ejecutar el query si tenemos ambos valores
+    skip: !procesoId || !operacion,
     fetchPolicy: "network-only",
   });
 
   const procesoEspecifico = dataP?.procesoOpPorOperacionYProceso;
 
-  // 3. Mutación de INICIO (Se mantiene igual)
+  // 3. Query GET_MAQUINAS (Corregido y renombrado para ser un Query)
+  const GET_MAQUINAS = gql`
+    query GetMaquinas($procesoId: ID!) {
+      maquinaPorProceso(procesoId: $procesoId) {
+        id
+        nombre
+      }
+    }
+  `;
+
+  const {
+    data: dataM,
+    loading: loadingM,
+    // error: errorM, // No usado en este fragmento
+  } = useQuery<MaquinasQueryResult>(GET_MAQUINAS, {
+    variables: {
+      procesoId: procesoId,
+    },
+    // Ejecutar solo si tenemos el ID del proceso
+    skip: !procesoId,
+    fetchPolicy: "cache-and-network",
+  });
+
+  console.log("proceso id:", procesoId);
+
+  const maquinas = dataM?.maquinaPorProceso;
+
+  // 4. Mutación de INICIO (Se mantiene igual)
   const INICIAR_PROCESO = gql`
     mutation IniciarProceso(
       $procesoOpId: ID!
       $usuarioId: ID!
       $estado: String!
-      $maquinaId: ID
+      $maquinaId: ID # Acepta ID opcional (aunque aquí será obligatorio si hay máquinas)
     ) {
       iniciarProcesoOp(
         procesoOpId: $procesoOpId
@@ -231,7 +287,7 @@ export default function ScanStation() {
   const [iniciarProcesoOp, { loading: loadingI, error: errorI }] =
     useMutation(INICIAR_PROCESO);
 
-  // 4. Mutación de FINALIZACIÓN (MODIFICADA para incluir observaciones)
+  // 5. Mutación de FINALIZACIÓN (MODIFICADA para incluir observaciones)
   const FINALIZAR_PROCESO = gql`
     mutation FinalizarProceso(
       $procesoOpId: ID!
@@ -255,7 +311,7 @@ export default function ScanStation() {
   const [finalizarProcesoOp, { loading: loadingF, error: errorF }] =
     useMutation(FINALIZAR_PROCESO);
 
-  // 5. Mutación de REGISTRO DE OBSERVACIÓN (CORREGIDA)
+  // 6. Mutación de REGISTRO DE OBSERVACIÓN (CORREGIDA)
   const REGISTRAR_OBSERVACION = gql`
     mutation RegistrarObservacion(
       $procesoOpId: ID!
@@ -296,8 +352,19 @@ export default function ScanStation() {
     const procesoOpId = procesoEspecifico.id;
     const usuarioId = dataE.usuario.id;
 
-    // Simulación de ID de máquina, ajustar según tu necesidad (ej: por QR de máquina)
-    const maquinaId = "1";
+    // --- NUEVA VALIDACIÓN DE MÁQUINA ---
+    if (
+      estado === "pending" && // Solo se requiere al iniciar
+      maquinas &&
+      maquinas.length > 0 &&
+      !maquinaSeleccionadaId
+    ) {
+      addScan("error", "Debe seleccionar una máquina para iniciar el proceso.");
+      return;
+    }
+    // ----------------------------------
+
+    const maquinaId = maquinaSeleccionadaId; // Usamos la máquina seleccionada
 
     let nuevoEstado: string;
 
@@ -310,7 +377,7 @@ export default function ScanStation() {
             procesoOpId: procesoOpId,
             usuarioId: usuarioId,
             estado: nuevoEstado,
-            maquinaId: maquinaId,
+            maquinaId: maquinaId, // ¡Se pasa la máquina seleccionada!
           },
         });
         addScan("ok", `Proceso iniciado: ${procesoEspecifico.proceso.nombre}`);
@@ -343,6 +410,8 @@ export default function ScanStation() {
     }
   };
 
+  // ... (El resto de funciones como handleLockOperator, handleChangeOperator, addScan, handleSubmitScan, etc., se mantienen igual, excepto por la nueva validación en handleSubmitScan)
+
   const handleLockOperator = () => {
     if (errorE || !dataE?.usuario) {
       // Permitir continuar si hay datos
@@ -354,6 +423,7 @@ export default function ScanStation() {
   function handleChangeOperator() {
     setLocked(false);
     setWorkOrder(""); // Limpiar WO al cambiar operador
+    setMaquinaSeleccionadaId(undefined); // Limpiar máquina
     setTimeout(() => empInputRef.current?.focus(), 0);
   }
 
@@ -373,11 +443,13 @@ export default function ScanStation() {
       status: status,
       note: note,
       timestamp: item.ts,
+      maquinaId: maquinaSeleccionadaId, // loggeamos la máquina
     });
 
     setRecent((prev) => [item, ...prev].slice(0, 200));
     setWorkOrder("");
     setPage(1);
+    // IMPORTANTE: NO limpiamos la maquinaSeleccionadaId aquí si queremos que persista para el siguiente WO
     setTimeout(() => woInputRef.current?.focus(), 0);
   }
 
@@ -398,7 +470,18 @@ export default function ScanStation() {
       return;
     }
 
-    // 3. Ejecutar la acción si tenemos un ProcesoOp cargado y no está cargando
+    // 3. Validar selección de máquina si hay máquinas disponibles
+    const shouldSelectMachine =
+      procesoEspecifico?.estado === "pending" &&
+      maquinas &&
+      maquinas.length > 0;
+
+    if (shouldSelectMachine && !maquinaSeleccionadaId) {
+      addScan("error", "Debe seleccionar una máquina para iniciar el proceso.");
+      return;
+    }
+
+    // 4. Ejecutar la acción si tenemos un ProcesoOp cargado y no está cargando
     if (!loadingP && !errorP) {
       if (procesoEspecifico) {
         handleScanAction();
@@ -661,6 +744,29 @@ export default function ScanStation() {
                 </p>
               </div>
 
+              <div>
+                <Label htmlFor="maquina-select">Máquina</Label>
+                <Select
+                  onValueChange={setMaquinaSeleccionadaId}
+                  value={maquinaSeleccionadaId || ""}
+                  disabled={loadingM || loadingP}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecciona una máquina" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {maquinas?.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Obligatorio para iniciar un proceso.
+                </p>
+              </div>
+
               <div className="flex gap-2 pt-1">
                 {!locked ? (
                   <Button
@@ -755,6 +861,7 @@ export default function ScanStation() {
                   {procesoEspecifico.estado === "pending" && (
                     <p className="text-amber-700">
                       Scanear inicia el proceso y registra la hora de inicio.
+                      (Asegura seleccionar la Máquina)
                     </p>
                   )}
                   {procesoEspecifico.estado === "in_progress" && (
@@ -808,6 +915,7 @@ export default function ScanStation() {
       <h2 className="text-sm font-medium text-muted-foreground mt-6 mb-3">
         Otras acciones
       </h2>
+      {/* ... (El resto del código se mantiene igual, ya que no afecta a estas secciones) */}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* --- Rechazo (SCRAP) --- */}
@@ -1031,11 +1139,22 @@ export default function ScanStation() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Flujo</CardTitle>
             <CardDescription>
-              1) Captura empleado · 2) Captura WO · 3) Enter para registrar
+              1) Captura empleado · 2) Captura WO · 3) Selecciona máquina · 4)
+              Enter para registrar
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Progress value={locked ? (workOrder ? 90 : 60) : 30} />
+            <Progress
+              value={
+                locked
+                  ? workOrder
+                    ? maquinaSeleccionadaId
+                      ? 90
+                      : 75
+                    : 60
+                  : 30
+              }
+            />
           </CardContent>
         </Card>
       </div>

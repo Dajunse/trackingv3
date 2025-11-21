@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { User, FolderPlus, Save, ArrowLeft, Wrench } from "lucide-react"; // Importar Wrench
+import {
+  User,
+  FolderPlus,
+  Save,
+  ArrowLeft,
+  Wrench,
+  Trash2, // Importar ícono de basura para eliminación
+} from "lucide-react";
 import { gql } from "@apollo/client";
 import { useMutation } from "@apollo/client/react";
 
@@ -54,7 +61,7 @@ export default function NewEntryPage() {
         </Button>
       </header>
       <h1 className="text-2xl font-semibold tracking-tight mb-8">
-        Alta de Nuevos Elementos
+        Alta y Baja de Nuevos Elementos
       </h1>
       {/* === IMPLEMENTACIÓN DE TABS: 3 COLUMNAS === */}
       <Tabs defaultValue="proyecto" className="w-full">
@@ -73,19 +80,28 @@ export default function NewEntryPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Contenido: Proyecto (por defecto) */}
+        {/* Contenido: Proyecto */}
         <TabsContent value="proyecto" className="mt-6">
           <CreateProjectCard />
+          <div className="mt-8">
+            <DeleteProjectCard />
+          </div>
         </TabsContent>
 
         {/* Contenido: Usuario */}
         <TabsContent value="usuario" className="mt-6">
           <CreateUserCard />
+          <div className="mt-8">
+            <DeleteUserCard />
+          </div>
         </TabsContent>
 
-        {/* Contenido: Máquina (NUEVO) */}
+        {/* Contenido: Máquina */}
         <TabsContent value="maquina" className="mt-6">
           <CreateMachineCard />
+          <div className="mt-8">
+            <DeleteMachineCard />
+          </div>
         </TabsContent>
       </Tabs>
       {/* === FIN DE IMPLEMENTACIÓN DE TABS === */}
@@ -94,7 +110,7 @@ export default function NewEntryPage() {
 }
 
 // ----------------------------------------------------------------------
-// COMPONENTE: CREAR USUARIO (CORREGIDO)
+// COMPONENTE: CREAR USUARIO
 // ----------------------------------------------------------------------
 
 function CreateUserCard() {
@@ -133,13 +149,12 @@ function CreateUserCard() {
 
     try {
       await createUser({
-        // CORRECCIÓN CLAVE: Envolver los campos en el objeto 'input'
         variables: {
           input: {
             numero: userData.numero,
             nombre: userData.nombre,
             email: userData.email,
-            areaId: userData.areaId || null, // Pasar null si está vacío (si tu backend lo permite)
+            areaId: userData.areaId || null,
             procesoId: userData.procesoId || null,
           },
         },
@@ -164,12 +179,11 @@ function CreateUserCard() {
     }
   };
 
-  // ... (El JSX se mantiene igual)
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5" /> Formulario de Usuario
+          <User className="h-5 w-5" /> Formulario de Usuario (Alta)
         </CardTitle>
         <CardDescription>
           Ingresa los detalles para dar de alta un nuevo miembro al sistema.
@@ -298,7 +312,119 @@ function CreateUserCard() {
 }
 
 // ----------------------------------------------------------------------
-// COMPONENTE: CREAR PROYECTO (CORREGIDO)
+// COMPONENTE NUEVO: ELIMINAR USUARIO
+// ----------------------------------------------------------------------
+
+function DeleteUserCard() {
+  const DELETE_USUARIO = gql`
+    mutation EliminarUsuario($numero: String!) {
+      eliminarUsuarioPorNumero(numero: $numero)
+    }
+  `;
+
+  const [deleteUser, { loading: loadingDeleteUser, error: errorDeleteUser }] =
+    useMutation(DELETE_USUARIO);
+
+  const [numeroToDelete, setNumeroToDelete] = useState("");
+
+  const handleSubmitDeleteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!numeroToDelete) return;
+
+    // Pedir confirmación antes de eliminar
+    if (
+      !window.confirm(
+        `¿Estás seguro de eliminar al usuario con número '${numeroToDelete}'? Esta acción es irreversible.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const { data } = await deleteUser({
+        variables: {
+          numero: numeroToDelete,
+        },
+      });
+
+      if (data) {
+        alert(`Usuario con número '${numeroToDelete}' eliminado exitosamente.`);
+        setNumeroToDelete("");
+      } else {
+        // Esto captura el caso donde la mutación retorna 'false' (si el backend lo hiciera),
+        // aunque el backend de Python debe lanzar una excepción si no lo encuentra.
+        alert(
+          `Error: No se pudo eliminar el usuario con número '${numeroToDelete}'.`
+        );
+      }
+    } catch (e) {
+      console.error("Error de eliminación:", e);
+      alert(
+        `Error al eliminar usuario: ${
+          errorDeleteUser?.message || "Hubo un problema de conexión."
+        }`
+      );
+    }
+  };
+
+  return (
+    <Card className="border-red-500 bg-red-50/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-red-700">
+          <Trash2 className="h-5 w-5" /> Formulario de Usuario (Baja)
+        </CardTitle>
+        <CardDescription className="text-red-600">
+          **ADVERTENCIA**: Elimina un usuario de forma permanente usando su
+          número de empleado (único).
+        </CardDescription>
+        {errorDeleteUser && (
+          <div className="text-sm mt-2 p-2 rounded bg-rose-100 text-rose-700">
+            {`Error: ${errorDeleteUser.message}`}
+          </div>
+        )}
+      </CardHeader>
+
+      <Separator className="bg-red-200" />
+
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmitDeleteUser} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="delete-user-numero">
+              Número de empleado a eliminar
+            </Label>
+            <Input
+              id="delete-user-numero"
+              placeholder="1024"
+              value={numeroToDelete}
+              onChange={(e) => setNumeroToDelete(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="w-full justify-center flex items-center">
+            <Button
+              type="submit"
+              variant="destructive"
+              className="w-1/2 gap-2 mt-4 cursor-pointer"
+              disabled={loadingDeleteUser}
+            >
+              {loadingDeleteUser ? (
+                "Eliminando..."
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" /> Eliminar Usuario
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------------
+// COMPONENTE: CREAR PROYECTO
 // ----------------------------------------------------------------------
 
 function CreateProjectCard() {
@@ -313,7 +439,7 @@ function CreateProjectCard() {
   `;
 
   const [
-    createProject, // Renombrado a createProject para evitar conflicto con createUser
+    createProject,
     {
       data: dataNewProyect,
       loading: loadingNewProyect,
@@ -332,10 +458,9 @@ function CreateProjectCard() {
 
     try {
       await createProject({
-        // CORRECCIÓN CLAVE: Envolver los campos en el objeto 'input'
         variables: {
           input: {
-            proyecto: projectData.nombre, // Usar 'proyecto' para GraphQL
+            proyecto: projectData.nombre,
             descripcion: projectData.descripcion,
           },
         },
@@ -357,12 +482,11 @@ function CreateProjectCard() {
     }
   };
 
-  // ... (El JSX se mantiene igual)
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FolderPlus className="h-5 w-5" /> Formulario de Proyecto
+          <FolderPlus className="h-5 w-5" /> Formulario de Proyecto (Alta)
         </CardTitle>
         <CardDescription>
           Define un nuevo proyecto que agrupará las Órdenes de Producción.
@@ -435,7 +559,120 @@ function CreateProjectCard() {
 }
 
 // ----------------------------------------------------------------------
-// COMPONENTE NUEVO: CREAR MÁQUINA
+// COMPONENTE NUEVO: ELIMINAR PROYECTO
+// ----------------------------------------------------------------------
+
+function DeleteProjectCard() {
+  const DELETE_PROYECTO = gql`
+    mutation EliminarProyecto($proyecto: String!) {
+      eliminarProyectoPorNombre(proyecto: $proyecto)
+    }
+  `;
+
+  const [
+    deleteProject,
+    { loading: loadingDeleteProject, error: errorDeleteProject },
+  ] = useMutation(DELETE_PROYECTO);
+
+  const [projectNameToDelete, setProjectNameToDelete] = useState("");
+
+  const handleSubmitDeleteProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectNameToDelete) return;
+
+    // Pedir confirmación antes de eliminar
+    if (
+      !window.confirm(
+        `¿Estás seguro de eliminar el proyecto '${projectNameToDelete}'? Esta acción eliminará también todas sus operaciones asociadas y es irreversible.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const { data } = await deleteProject({
+        variables: {
+          proyecto: projectNameToDelete,
+        },
+      });
+
+      if (data) {
+        alert(`Proyecto '${projectNameToDelete}' eliminado exitosamente.`);
+        setProjectNameToDelete("");
+      } else {
+        alert(
+          `Error: No se pudo eliminar el proyecto '${projectNameToDelete}'.`
+        );
+      }
+    } catch (e) {
+      console.error("Error de eliminación:", e);
+      alert(
+        `Error al eliminar proyecto: ${
+          errorDeleteProject?.message || "Hubo un problema de conexión."
+        }`
+      );
+    }
+  };
+
+  return (
+    <Card className="border-red-500 bg-red-50/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-red-700">
+          <Trash2 className="h-5 w-5" /> Formulario de Proyecto (Baja)
+        </CardTitle>
+        <CardDescription className="text-red-600">
+          **ADVERTENCIA**: Elimina un proyecto de forma permanente usando su
+          nombre (único). Esto puede eliminar **WorkOrders y Operaciones
+          asociadas**.
+        </CardDescription>
+        {errorDeleteProject && (
+          <div className="text-sm mt-2 p-2 rounded bg-rose-100 text-rose-700">
+            {`Error: ${errorDeleteProject.message}`}
+          </div>
+        )}
+      </CardHeader>
+
+      <Separator className="bg-red-200" />
+
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmitDeleteProject} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="delete-project-nombre">
+              Nombre del Proyecto a eliminar
+            </Label>
+            <Input
+              id="delete-project-nombre"
+              placeholder="OP-XXXX • Nombre del dispositivo"
+              value={projectNameToDelete}
+              onChange={(e) => setProjectNameToDelete(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="w-full justify-center flex items-center">
+            <Button
+              type="submit"
+              variant="destructive"
+              className="w-1/2 gap-2 mt-4 cursor-pointer"
+              disabled={loadingDeleteProject}
+            >
+              {loadingDeleteProject ? (
+                "Eliminando..."
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" /> Eliminar Proyecto
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------------
+// COMPONENTE: CREAR MÁQUINA
 // ----------------------------------------------------------------------
 
 function CreateMachineCard() {
@@ -499,7 +736,7 @@ function CreateMachineCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Wrench className="h-5 w-5" /> Formulario de Máquina
+          <Wrench className="h-5 w-5" /> Formulario de Máquina (Alta)
         </CardTitle>
         <CardDescription>
           Dar de alta una nueva máquina y asignarle su proceso de producción
@@ -570,6 +807,118 @@ function CreateMachineCard() {
               ) : (
                 <>
                   <Save className="h-4 w-4" /> Guardar Máquina
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------------
+// COMPONENTE NUEVO: ELIMINAR MÁQUINA
+// ----------------------------------------------------------------------
+
+function DeleteMachineCard() {
+  const DELETE_MAQUINA = gql`
+    mutation EliminarMaquina($nombre: String!) {
+      eliminarMaquinaPorNombre(nombre: $nombre)
+    }
+  `;
+
+  const [
+    deleteMachine,
+    { loading: loadingDeleteMachine, error: errorDeleteMachine },
+  ] = useMutation(DELETE_MAQUINA);
+
+  const [machineNameToDelete, setMachineNameToDelete] = useState("");
+
+  const handleSubmitDeleteMachine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!machineNameToDelete) return;
+
+    // Pedir confirmación antes de eliminar
+    if (
+      !window.confirm(
+        `¿Estás seguro de eliminar la máquina '${machineNameToDelete}'? Esta acción es irreversible.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const { data } = await deleteMachine({
+        variables: {
+          nombre: machineNameToDelete,
+        },
+      });
+
+      if (data) {
+        alert(`Máquina '${machineNameToDelete}' eliminada exitosamente.`);
+        setMachineNameToDelete("");
+      } else {
+        alert(
+          `Error: No se pudo eliminar la máquina '${machineNameToDelete}'.`
+        );
+      }
+    } catch (e) {
+      console.error("Error de eliminación:", e);
+      alert(
+        `Error al eliminar máquina: ${
+          errorDeleteMachine?.message || "Hubo un problema de conexión."
+        }`
+      );
+    }
+  };
+
+  return (
+    <Card className="border-red-500 bg-red-50/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-red-700">
+          <Trash2 className="h-5 w-5" /> Formulario de Máquina (Baja)
+        </CardTitle>
+        <CardDescription className="text-red-600">
+          **ADVERTENCIA**: Elimina una máquina de forma permanente usando su
+          nombre (único).
+        </CardDescription>
+        {errorDeleteMachine && (
+          <div className="text-sm mt-2 p-2 rounded bg-rose-100 text-rose-700">
+            {`Error: ${errorDeleteMachine.message}`}
+          </div>
+        )}
+      </CardHeader>
+
+      <Separator className="bg-red-200" />
+
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmitDeleteMachine} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="delete-machine-nombre">
+              Nombre de la Máquina a eliminar
+            </Label>
+            <Input
+              id="delete-machine-nombre"
+              placeholder="CNC-01, Cortadora Láser, etc."
+              value={machineNameToDelete}
+              onChange={(e) => setMachineNameToDelete(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="w-full justify-center flex items-center">
+            <Button
+              type="submit"
+              variant="destructive"
+              className="w-1/2 gap-2 mt-4 cursor-pointer"
+              disabled={loadingDeleteMachine}
+            >
+              {loadingDeleteMachine ? (
+                "Eliminando..."
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" /> Eliminar Máquina
                 </>
               )}
             </Button>

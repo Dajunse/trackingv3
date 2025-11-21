@@ -30,7 +30,7 @@ type Machine = {
 
 // --- Tipos de GraphQL (Deducción basada en el query) ---
 type GetProcesosOperacionQuery = {
-  todosProcesosOperacion: Array<{
+  procesosOperacion: Array<{
     id: string; // El ID de la operación
     operacion: { operacion: string };
     maquina: { nombre: string };
@@ -126,10 +126,10 @@ function statusColor(machine: Machine) {
 // 2. Función de Transformación de Datos (CON FILTRO POR ESTADO)
 // -------------------------------
 function transformDataToMachines(data: ProcesosOpQueryResult): Machine[] {
-  if (!data?.todosProcesosOperacion) return [];
+  if (!data?.procesosOperacion) return [];
 
   // ✅ FILTRO CLAVE: Solo procesar ítems cuyo estado sea "in_progress"
-  return data.todosProcesosOperacion
+  return data.procesosOperacion
     .filter((item) => item.estado.toLowerCase() === "in_progress")
     .map((item) => {
       // Usamos el operador ternario para manejar la potencial nulidad de usuario/proceso
@@ -157,7 +157,7 @@ function transformDataToMachines(data: ProcesosOpQueryResult): Machine[] {
 export default function MaquinasDashboard() {
   const GET_DATOS = gql`
     query GetProcesosOperacion {
-      todosProcesosOperacion {
+      procesosOperacion {
         id
         operacion {
           operacion
