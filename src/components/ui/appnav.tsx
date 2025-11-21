@@ -10,7 +10,7 @@ const links = [
   { href: "/piezas", label: "WorkOrder" },
   { href: "/escaneo", label: "Escaneo" },
   { href: "/machines", label: "Dashboard" },
-  { href: "/newentries", label: "New" },
+  { href: "/login", label: "New" },
 ];
 
 export default function AppNav() {

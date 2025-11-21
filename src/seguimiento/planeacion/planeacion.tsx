@@ -337,7 +337,7 @@ export default function IntakeDePlanos() {
       if (response.ok) {
         // 1. Obtener el nombre de archivo sugerido del header (si la API lo envía)
         const contentDisposition = response.headers.get("Content-Disposition");
-        let filename = "plano_con_qr.pdf";
+        let filename = `${noOperacion}-Qr.pdf`;
         if (contentDisposition) {
           const match = contentDisposition.match(/filename="?([^"]+)"?/i);
           if (match && match[1]) {

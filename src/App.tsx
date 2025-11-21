@@ -11,6 +11,7 @@ import ScanStation from "./seguimiento/estaciones/escaneo/escaneo";
 import MaquinasDashboard from "./seguimiento/dashboard/machines";
 import ImpactoPage from "./seguimiento/principal";
 import NewEntryPage from "./seguimiento/newentries";
+import LoginPage from "./seguimiento/login";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route path="/piezas" element={<PiezasDashboard />} />
         <Route path="/pieza/:id" element={<PiezaDashboard />} />
         <Route path="/machines" element={<MaquinasDashboard />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/newentries" element={<NewEntryPage />} />
         <Route path="*" element={<div className="p-6">404</div>} />
       </Routes>
