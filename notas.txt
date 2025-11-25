@@ -1,3 +1,5 @@
+
+
 query ObtenerProcesoEspecifico {
   procesoOpPorOperacionYProceso(
     operacionId: "3", cuando el empleado ve el qr se ve la operacion
