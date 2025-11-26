@@ -363,6 +363,8 @@ export default function IntakeDePlanos() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
 
+        setNoOperacion("");
+
         toast.success(`Plano con QR (${filename}) descargado exitosamente`);
         // resetForm(); // Opcional, descomentar si deseas limpiar el formulario inmediatamente
       } else {
@@ -715,7 +717,7 @@ export default function IntakeDePlanos() {
                 variant="outline"
                 type="button"
                 onClick={onPrint}
-                disabled={!noProyecto || !noPlano}
+                disabled={!noProyecto || !noPlano || !noOperacion}
               >
                 <QrCode className="h-4 w-4 mr-1" /> Imprimir
               </Button>
