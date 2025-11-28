@@ -42,6 +42,11 @@ const MOCK_AREAS: Area[] = [
   { id: 1, nombre: "Planeación" },
   { id: 2, nombre: "Manufactura" },
   { id: 3, nombre: "Calidad" },
+  { id: 4, nombre: "Corte" },
+  { id: 5, nombre: "Escuadre" },
+  { id: 6, nombre: "Programación CNC" },
+  { id: 7, nombre: "CNC" },
+  { id: 8, nombre: "Almacen" },
 ];
 
 const MOCK_PROCESOS: Proceso[] = [
