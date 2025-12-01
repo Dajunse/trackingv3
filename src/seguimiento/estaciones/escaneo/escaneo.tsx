@@ -496,8 +496,6 @@ export default function ScanStation() {
     }
   };
 
-  // ... (El resto de funciones como handleLockOperator, handleChangeOperator, addScan, handleSubmitScan, etc., se mantienen igual, excepto por la nueva validación en handleSubmitScan)
-
   const handleLockOperator = () => {
     if (errorE || !dataE?.usuario) {
       // Permitir continuar si hay datos
@@ -735,6 +733,12 @@ export default function ScanStation() {
   if (estadoActual === "done" || estadoActual === "scrap")
     estadoColor = "bg-emerald-100 text-emerald-600";
 
+  const isMaquinaRequiredAndMissing =
+    procesoEspecifico?.estado === "pending" && // Solo si está pendiente de iniciar
+    maquinas &&
+    maquinas.length > 0 &&
+    !maquinaSeleccionadaId;
+
   function showData() {
     console.log(employeeId);
     console.log(workOrder);
@@ -854,7 +858,11 @@ export default function ScanStation() {
                     type="button"
                     onClick={handleLockOperator}
                     disabled={
-                      loadingE || !procesoEspecifico || !maquinaSeleccionadaId
+                      !workOrder ||
+                      loadingP ||
+                      loadingI ||
+                      loadingF ||
+                      isMaquinaRequiredAndMissing
                     }
                   >
                     Continuar
