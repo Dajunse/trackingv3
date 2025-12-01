@@ -3,8 +3,7 @@ import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search } from "lucide-react";
-
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -459,7 +458,7 @@ export default function PiezasDashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap">OP</TableHead>
+                  <TableHead className="whitespace-nowrap">WorkOrder</TableHead>
                   <TableHead>Plano</TableHead>
                   <TableHead>Proyecto</TableHead>
                   <TableHead className="text-center">Categoría</TableHead>
@@ -554,7 +553,7 @@ export default function PiezasDashboard() {
                   disabled={pageSafe <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  {/* <ChevronLeft className="h-4 w-4" /> */}
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -562,7 +561,7 @@ export default function PiezasDashboard() {
                   disabled={pageSafe >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
-                  {/* <ChevronRight className="h-4 w-4" /> */}
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>

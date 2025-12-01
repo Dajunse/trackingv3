@@ -853,7 +853,9 @@ export default function ScanStation() {
                   <Button
                     type="button"
                     onClick={handleLockOperator}
-                    disabled={loadingE || !employeeId}
+                    disabled={
+                      loadingE || !procesoEspecifico || !maquinaSeleccionadaId
+                    }
                   >
                     Continuar
                   </Button>
