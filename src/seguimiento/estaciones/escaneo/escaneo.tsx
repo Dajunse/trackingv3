@@ -58,6 +58,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { toast } from "sonner";
+
 /* --------------------------------- Tipos ---------------------------------- */
 type ScanStatus = "ok" | "error" | "warning";
 type ModalActionType = "rechazo" | "pausa" | "problema" | "reanudacion" | "";
@@ -417,6 +419,7 @@ export default function ScanStation() {
           },
         });
         addScan("ok", `Proceso iniciado: ${procesoEspecifico.proceso.nombre}`);
+        toast.success(`✅ Iniciado: ${procesoEspecifico.proceso.nombre}`);
       } else if (estado === "in_progress") {
         // --- FINALIZAR PROCESO (DONE) ---
         nuevoEstado = "done";
@@ -431,6 +434,7 @@ export default function ScanStation() {
           "ok",
           `Proceso finalizado: ${procesoEspecifico.proceso.nombre}`
         );
+        toast.success(`🎉 Finalizado: ${procesoEspecifico.proceso.nombre}`);
       } else if (estado === "done") {
         addScan("warning", "El proceso ya está completado.");
       } else if (estado === "scrap") {
@@ -446,7 +450,7 @@ export default function ScanStation() {
 
       refetchP();
     } catch (e: any) {
-      console.error("Error en la mutación:", e);
+      toast.error("Error en la operación:", e);
       addScan("error", `Error en servidor: ${e.message.split(":")[0]}`);
     }
   };
@@ -472,17 +476,18 @@ export default function ScanStation() {
           "warning",
           `Proceso Pausado. Motivo: ${observaciones.substring(0, 30)}...`
         );
+        toast.success(`⏸️ Proceso Pausado.`);
       } else {
         setIsPaused(false);
         addScan(
           "ok",
           `Proceso Reanudado. Motivo: ${observaciones.substring(0, 30)}...`
         );
+        toast.success(`▶️ Proceso Reanudado.`);
       }
-
       refetchP(); // Actualizar la vista de la operación
     } catch (e: any) {
-      console.error(`Error en la mutación ${newState.toUpperCase()}:`, e);
+      toast.error(`Error en la operación ${newState.toUpperCase()}:`, e);
       addScan(
         "error",
         `Error en servidor (${newState.toUpperCase()}): ${
@@ -591,9 +596,10 @@ export default function ScanStation() {
           procesoEspecifico?.proceso.nombre
         }. Motivo: ${observaciones.substring(0, 30)}...`
       );
+      toast.success(`❌ Operación SCRAP registrada con éxito.`);
       refetchP(); // Actualizar la vista
     } catch (e: any) {
-      console.error("Error en la mutación SCRAP:", e);
+      toast.error("Error en la operación SCRAP:", e);
       addScan("error", `Error en servidor (SCRAP): ${e.message.split(":")[0]}`);
     } finally {
       setModalOpen(false);
@@ -638,9 +644,10 @@ export default function ScanStation() {
           " "
         )} registrado: ${observaciones.substring(0, 30)}...`
       );
+      toast.success(`📝 ${tipoRegistro.replace("_", " ")} registrado.`);
       refetchP();
     } catch (e: any) {
-      console.error(`Error en la mutación ${tipoRegistro}:`, e);
+      toast.error(`Error en la operación ${tipoRegistro}:`, e);
       addScan(
         "error",
         `Error en servidor (${tipoRegistro}): ${e.message.split(":")[0]}`
@@ -670,7 +677,7 @@ export default function ScanStation() {
 
   const handleConfirmModal = () => {
     if (motivo.length < 5) {
-      alert(
+      toast.message(
         "Por favor, ingresa una descripción o motivo de al menos 5 caracteres."
       );
       return;
