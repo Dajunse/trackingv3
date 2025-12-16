@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +38,7 @@ import {
 } from "lucide-react";
 
 /* ============================
-   Tipos GraphQL
+   Tipos GraphQL y Respuesta
 ================================ */
 
 type ProcesoAsignado = {
@@ -61,7 +60,6 @@ type ProcesoAsignado = {
   } | null;
 };
 
-// INTERFAZ PARA GET_USUARIOS
 interface GetUsuariosData {
   usuarios: {
     id: string;
@@ -70,7 +68,6 @@ interface GetUsuariosData {
   }[];
 }
 
-// INTERFAZ PARA GET_USUARIO
 interface GetUserData {
   usuario: {
     id: string;
@@ -88,7 +85,7 @@ type IntervalKind = "work" | "break" | "unknown";
 type Interval = {
   start: string;
   end: string;
-  minutes: number; // ES EL TIEMPO REAL CALCULADO
+  minutes: number; // Tiempo real calculado en minutos
   kind: IntervalKind;
   maquinaNombre: string;
   operacion: string;
@@ -104,19 +101,6 @@ type TimelineResult = {
   unknownLongGaps: Interval[];
   overtimeMin: number;
 };
-
-/* ============================
-   Config jornada
-================================ */
-
-// const SHIFT_END = "17:30";
-
-// function timeStringToMinutes(hhmm: string): number {
-//   const [h, m] = hhmm.split(":").map(Number);
-//   return h * 60 + m;
-// }
-
-// const SHIFT_END_MIN = timeStringToMinutes(SHIFT_END);
 
 /* ============================
    Queries GraphQL
@@ -166,10 +150,6 @@ const GET_USUARIO = gql`
 function diffMinutes(a: Date, b: Date): number {
   return Math.max(0, (b.getTime() - a.getTime()) / 60000);
 }
-
-// function minutesFromMidnight(d: Date): number {
-//   return d.getHours() * 60 + d.getMinutes();
-// }
 
 function formatTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -246,28 +226,35 @@ export default function LavorPage() {
     error: usersError,
   } = useQuery<GetUsuariosData>(GET_USUARIOS);
 
-  const [selectedEmployeeNumero, setSelectedEmployeeNumero] =
+  // Estado para guardar la selección actual del usuario (puede ser "")
+  const [currentSelectedNumero, setCurrentSelectedNumero] =
     useState<string>("");
+  // Estado para el filtro de proyecto, inicializado con el valor sentinel
+  const [projectFilter, setProjectFilter] = useState<string>("ALL_PROJECTS");
   const [date, setDate] = useState<string>("2025-12-10");
-  const [projectFilter, setProjectFilter] = useState<string>("");
 
-  // 🛑 Lógica robusta de filtro e inicialización
-  const employees = useMemo(() => {
+  // Lógica central: filtra usuarios inválidos y determina el número por defecto.
+  const { employees, defaultNumero } = useMemo(() => {
     if (usersData?.usuarios) {
-      // 1. Filtrar solo usuarios con un número de empleado válido (no nulo, no cadena vacía)
+      // 1. Filtrar solo usuarios con un número de empleado válido
       const validUsers = usersData.usuarios.filter(
         (emp) => emp.numero && emp.numero !== ""
       );
 
-      // 2. Si el estado no está seteado y tenemos usuarios válidos, inicializar con el primero
-      if (!selectedEmployeeNumero && validUsers.length > 0) {
-        setSelectedEmployeeNumero(validUsers[0].numero);
-      }
+      // 2. Determinar el número por defecto (el primero válido)
+      const firstValidNumero =
+        validUsers.length > 0 ? validUsers[0].numero : "";
 
-      return validUsers; // Retornamos solo los válidos
+      return {
+        employees: validUsers,
+        defaultNumero: firstValidNumero,
+      };
     }
-    return [];
-  }, [usersData, selectedEmployeeNumero]);
+    return { employees: [], defaultNumero: "" };
+  }, [usersData]);
+
+  // El número usado para la consulta y el Select. Prioriza la selección del usuario.
+  const selectedEmployeeNumero = currentSelectedNumero || defaultNumero;
 
   const {
     data: userData,
@@ -302,8 +289,11 @@ export default function LavorPage() {
     return Array.from(projects).sort();
   }, [timeline.intervals]);
 
+  // Aplica filtro de proyecto usando el valor sentinel ("ALL_PROJECTS")
   const filteredIntervals = useMemo(() => {
-    if (!projectFilter) return timeline.intervals;
+    if (!projectFilter || projectFilter === "ALL_PROJECTS") {
+      return timeline.intervals;
+    }
     return timeline.intervals.filter((itv) => itv.proyecto === projectFilter);
   }, [timeline.intervals, projectFilter]);
 
@@ -359,10 +349,10 @@ export default function LavorPage() {
               </Label>
               <Select
                 value={selectedEmployeeNumero}
-                onValueChange={setSelectedEmployeeNumero}
+                onValueChange={setCurrentSelectedNumero}
               >
                 <SelectTrigger className="w-48">
-                  <SelectValue />
+                  <SelectValue placeholder="Seleccione Operador" />
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((emp) => (
@@ -374,7 +364,7 @@ export default function LavorPage() {
               </Select>
             </div>
 
-            {/* Filtro Fecha (Desactivado/Dummy) */}
+            {/* Filtro Fecha (Dummy) */}
             <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1 opacity-50">
                 <Calendar className="h-3 w-3" /> Fecha (Dummy)
@@ -439,7 +429,7 @@ export default function LavorPage() {
             </CardContent>
           </Card>
 
-          {/* Bloque de “alertas” (Ahora es métricas adicionales) */}
+          {/* Bloque de “alertas” (Métricas) */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -492,7 +482,10 @@ export default function LavorPage() {
                     <SelectValue placeholder="Todos los proyectos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los proyectos</SelectItem>
+                    {/* Opción 'Seleccionar Todos' con valor sentinel no vacío */}
+                    <SelectItem value="ALL_PROJECTS">
+                      Todos los proyectos
+                    </SelectItem>
                     {uniqueProjects.map((proj) => (
                       <SelectItem key={proj} value={proj}>
                         {proj}
@@ -528,7 +521,7 @@ export default function LavorPage() {
                           className="py-10 text-center text-sm text-neutral-500"
                         >
                           No hay procesos registrados para este operador
-                          {projectFilter
+                          {projectFilter !== "ALL_PROJECTS"
                             ? ` en el proyecto ${projectFilter}`
                             : ""}
                           .
