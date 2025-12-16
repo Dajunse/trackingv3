@@ -768,7 +768,10 @@ export default function ScanStation() {
           <CardHeader>
             <CardTitle>Operador & Work Order</CardTitle>
             <CardDescription>
-              Primero captura tu número de empleado
+              <div>Instrucciones:</div>
+              <div>1. Captura tu N° de empleado</div>
+              <div>2. Captura la WO</div>
+              <div>3. Selecciona la maquina que se ocupará</div>
             </CardDescription>
           </CardHeader>
           <CardContent>
