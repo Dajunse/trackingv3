@@ -768,10 +768,13 @@ export default function ScanStation() {
           <CardHeader>
             <CardTitle>Operador & Work Order</CardTitle>
             <CardDescription>
-              <div>Instrucciones:</div>
-              <div>1. Captura tu N° de empleado</div>
-              <div>2. Captura la WO</div>
-              <div>3. Selecciona la maquina que se ocupará</div>
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold">Instrucciones:</span>
+                <span>1) Captura tu número de empleado.</span>
+                <span>2) Escanea el código de la Work Order.</span>
+                <span>3) Selecciona una maquina.</span>
+                <span>4) Registra.</span>
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -805,7 +808,7 @@ export default function ScanStation() {
                 )}
                 {!locked && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    4–8 dígitos · Presiona Enter para continuar
+                    1. Haz clic en el campo y presenta tu tarjeta en el lector
                   </p>
                 )}
               </div>
@@ -828,7 +831,7 @@ export default function ScanStation() {
                   />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Captura ID y presiona Enter
+                  2. Haz clic en el campo y escanea el código QR con la pistola
                 </p>
               </div>
 
@@ -851,11 +854,11 @@ export default function ScanStation() {
                   </SelectContent>
                 </Select>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Obligatorio para iniciar un proceso.
+                  3. Selecciona la maquina que vas a ocupar
                 </p>
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1 mb-0">
                 <Button
                   type={locked ? "submit" : "button"}
                   onClick={locked ? undefined : handleLockOperator}
@@ -870,6 +873,9 @@ export default function ScanStation() {
                   {loadingI || loadingF ? "Procesando..." : "Continuar"}
                 </Button>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                4. Haz clic en continuar para registrar la WO
+              </p>
             </form>
           </CardContent>
 
