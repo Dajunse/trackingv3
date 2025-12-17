@@ -2,6 +2,10 @@ import { useMemo, useState } from "react";
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
 import { motion } from "framer-motion";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+
 import {
   Card,
   CardHeader,
@@ -18,7 +22,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -30,11 +40,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   User,
-  Calendar,
+  Calendar as CalendarIcon,
   AlertTriangle,
   Activity,
   Timer,
   Hourglass,
+  RefreshCcw,
 } from "lucide-react";
 
 /* ============================
@@ -46,11 +57,11 @@ type ProcesoAsignado = {
     nombre: string;
   };
   tiempoEstimado?: number | null;
-  horaInicio?: string | null; // ISO
-  horaFin?: string | null; // ISO
-  tiempoRealCalculado?: number | null; // Ya en minutos
+  horaInicio?: string | null;
+  horaFin?: string | null;
+  tiempoRealCalculado?: number | null;
   operacion: {
-    operacion: string; // Plano de wo
+    operacion: string;
     proyecto?: {
       proyecto: string;
     } | null;
@@ -76,17 +87,11 @@ interface GetUserData {
   } | null;
 }
 
-/* ============================
-   Tipos de la Interfaz
-================================ */
-
-type IntervalKind = "work" | "break" | "unknown";
-
 type Interval = {
   start: string;
   end: string;
-  minutes: number; // Tiempo real calculado en minutos
-  kind: IntervalKind;
+  minutes: number;
+  kind: "work" | "break" | "unknown";
   maquinaNombre: string;
   operacion: string;
   proyecto: string;
@@ -96,10 +101,6 @@ type Interval = {
 type TimelineResult = {
   intervals: Interval[];
   totalWorkMin: number;
-  totalBreakMin: number;
-  totalUnknownMin: number;
-  unknownLongGaps: Interval[];
-  overtimeMin: number;
 };
 
 /* ============================
@@ -117,8 +118,8 @@ const GET_USUARIOS = gql`
 `;
 
 const GET_USUARIO = gql`
-  query GetUsuario($numero: String!) {
-    usuario(numero: $numero) {
+  query GetUsuario($numero: String!, $fecha: Date) {
+    usuario(numero: $numero, fecha: $fecha) {
       id
       nombre
       procesosAsignados {
@@ -144,7 +145,7 @@ const GET_USUARIO = gql`
 `;
 
 /* ============================
-   Utilidades de tiempo
+   Utilidades
 ================================ */
 
 function diffMinutes(a: Date, b: Date): number {
@@ -155,22 +156,11 @@ function formatTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/* ============================
-   Core: construir timeline desde GraphQL
-================================ */
-
 function buildTimelineFromGraphQL(
   data: ProcesoAsignado[] | undefined
 ): TimelineResult {
   if (!data || data.length === 0) {
-    return {
-      intervals: [],
-      totalWorkMin: 0,
-      totalBreakMin: 0,
-      totalUnknownMin: 0,
-      unknownLongGaps: [],
-      overtimeMin: 0,
-    };
+    return { intervals: [], totalWorkMin: 0 };
   }
 
   const intervals: Interval[] = [];
@@ -180,9 +170,7 @@ function buildTimelineFromGraphQL(
 
   for (const proc of startedProcesses) {
     const start = new Date(proc.horaInicio!);
-
     const end = proc.horaFin ? new Date(proc.horaFin) : new Date();
-
     const tiempoReal = proc.tiempoRealCalculado ?? diffMinutes(start, end);
 
     if (tiempoReal > 0) {
@@ -196,7 +184,6 @@ function buildTimelineFromGraphQL(
         proyecto: proc.operacion.proyecto?.proyecto ?? "N/A",
         tiempoEstimado: proc.tiempoEstimado ?? 0,
       });
-
       totalWorkMin += Math.round(tiempoReal);
     }
   }
@@ -204,15 +191,7 @@ function buildTimelineFromGraphQL(
   intervals.sort(
     (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
   );
-
-  return {
-    intervals,
-    totalWorkMin,
-    totalBreakMin: 0,
-    totalUnknownMin: 0,
-    unknownLongGaps: [],
-    overtimeMin: 0,
-  };
+  return { intervals, totalWorkMin };
 }
 
 /* ============================
@@ -226,34 +205,25 @@ export default function LavorPage() {
     error: usersError,
   } = useQuery<GetUsuariosData>(GET_USUARIOS);
 
-  // Estado para guardar la selección actual del usuario (puede ser "")
   const [currentSelectedNumero, setCurrentSelectedNumero] =
     useState<string>("");
-  // Estado para el filtro de proyecto, inicializado con el valor sentinel
   const [projectFilter, setProjectFilter] = useState<string>("ALL_PROJECTS");
-  const [date, setDate] = useState<string>("2025-12-10");
+  // Estado de fecha como Objeto Date para Shadcn
+  const [date, setDate] = useState<Date | undefined>(new Date());
 
-  // Lógica central: filtra usuarios inválidos y determina el número por defecto.
   const { employees, defaultNumero } = useMemo(() => {
     if (usersData?.usuarios) {
-      // 1. Filtrar solo usuarios con un número de empleado válido
       const validUsers = usersData.usuarios.filter(
         (emp) => emp.numero && emp.numero !== ""
       );
-
-      // 2. Determinar el número por defecto (el primero válido)
-      const firstValidNumero =
-        validUsers.length > 0 ? validUsers[0].numero : "";
-
       return {
         employees: validUsers,
-        defaultNumero: firstValidNumero,
+        defaultNumero: validUsers.length > 0 ? validUsers[0].numero : "",
       };
     }
     return { employees: [], defaultNumero: "" };
   }, [usersData]);
 
-  // El número usado para la consulta y el Select. Prioriza la selección del usuario.
   const selectedEmployeeNumero = currentSelectedNumero || defaultNumero;
 
   const {
@@ -261,14 +231,17 @@ export default function LavorPage() {
     loading: userLoading,
     error: userError,
   } = useQuery<GetUserData>(GET_USUARIO, {
-    variables: { numero: selectedEmployeeNumero },
+    variables: {
+      numero: selectedEmployeeNumero,
+      // Formato YYYY-MM-DD para el schema de Django
+      fecha: date ? format(date, "yyyy-MM-dd") : null,
+    },
     skip: !selectedEmployeeNumero,
   });
 
   const allProcesos = userData?.usuario?.procesosAsignados as
     | ProcesoAsignado[]
     | undefined;
-
   const timeline = useMemo(
     () => buildTimelineFromGraphQL(allProcesos),
     [allProcesos]
@@ -282,18 +255,14 @@ export default function LavorPage() {
   const uniqueProjects = useMemo(() => {
     const projects = new Set<string>();
     timeline.intervals.forEach((itv) => {
-      if (itv.proyecto && itv.proyecto !== "N/A") {
-        projects.add(itv.proyecto);
-      }
+      if (itv.proyecto && itv.proyecto !== "N/A") projects.add(itv.proyecto);
     });
     return Array.from(projects).sort();
   }, [timeline.intervals]);
 
-  // Aplica filtro de proyecto usando el valor sentinel ("ALL_PROJECTS")
   const filteredIntervals = useMemo(() => {
-    if (!projectFilter || projectFilter === "ALL_PROJECTS") {
+    if (!projectFilter || projectFilter === "ALL_PROJECTS")
       return timeline.intervals;
-    }
     return timeline.intervals.filter((itv) => itv.proyecto === projectFilter);
   }, [timeline.intervals, projectFilter]);
 
@@ -310,13 +279,7 @@ export default function LavorPage() {
         message={`Error al cargar operadores: ${usersError.message}`}
       />
     );
-
-  if (userLoading)
-    return (
-      <LoadingState
-        text={`Cargando procesos de ${selectedEmployeeNumero}...`}
-      />
-    );
+  if (userLoading) return <LoadingState text={`Consultando actividades...`} />;
   if (userError)
     return (
       <ErrorState message={`Error al cargar procesos: ${userError.message}`} />
@@ -325,7 +288,6 @@ export default function LavorPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-100 via-white to-neutral-200 px-6 py-10 text-neutral-900 dark:from-black dark:via-neutral-950 dark:to-neutral-900 dark:text-neutral-100">
       <div className="mx-auto max-w-6xl space-y-6">
-        {/* Header */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <motion.h1
@@ -333,16 +295,15 @@ export default function LavorPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-3xl font-bold tracking-tight sm:text-4xl"
             >
-              Seguimiento diario por operador
+              Seguimiento por Operador
             </motion.h1>
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Actividades y métricas de desempeño.
+              Panel de métricas y tiempos reales.
             </p>
           </div>
 
-          {/* Filtros */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {/* Filtro Operador */}
+            {/* Selector de Operador */}
             <div className="space-y-1">
               <Label className="text-xs flex items-center gap-1">
                 <User className="h-3 w-3" /> Operador
@@ -351,7 +312,7 @@ export default function LavorPage() {
                 value={selectedEmployeeNumero}
                 onValueChange={setCurrentSelectedNumero}
               >
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-52">
                   <SelectValue placeholder="Seleccione Operador" />
                 </SelectTrigger>
                 <SelectContent>
@@ -364,220 +325,194 @@ export default function LavorPage() {
               </Select>
             </div>
 
-            {/* Filtro Fecha (Dummy) */}
+            {/* Selector de Fecha (Shadcn Calendar) */}
             <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1 opacity-50">
-                <Calendar className="h-3 w-3" /> Fecha (Dummy)
+              <Label className="text-xs flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" /> Fecha
               </Label>
-              <Input
-                type="date"
-                className="w-40 opacity-50"
-                value={date}
-                disabled
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-52 justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? (
+                      format(date, "PPP", { locale: es })
+                    ) : (
+                      <span>Seleccionar fecha</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                    locale={es}
+                  />
+                  <div className="border-t p-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs gap-2"
+                      onClick={() => setDate(new Date())}
+                    >
+                      <RefreshCcw className="h-3 w-3" /> Ir a Hoy
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </header>
 
-        {/* Resumen del día */}
         <section className="grid gap-4 md:grid-cols-[2fr,1.5fr]">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Activity className="h-4 w-4" />
-                Resumen de procesos
+                <Activity className="h-4 w-4" /> Resumen del Día
               </CardTitle>
               <CardDescription>
-                {selectedEmployeeNumero} · {employeeName}
+                {selectedEmployeeNumero} · {employeeName} (
+                {date ? format(date, "dd/MM/yyyy") : ""})
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-4 text-sm">
                 <SummaryChip
-                  label="Minutos totales de procesos"
+                  label="Total Procesos"
                   value={`${(timeline.totalWorkMin / 60).toFixed(2)} h`}
                   detail={`${timeline.totalWorkMin} min`}
                 />
-
-                <SummaryChip label="Pausa / comida" value={`N/A`} muted />
-                <SummaryChip
-                  label="Tiempo desconocido"
-                  value={`N/A`}
-                  warn={false}
-                />
-                <SummaryChip
-                  label="Min extras (trabajados)"
-                  value={`N/A`}
-                  highlight={false}
-                />
+                <SummaryChip label="Pausas" value="N/A" muted />
+                <SummaryChip label="Gaps" value="N/A" />
+                <SummaryChip label="Extras" value="N/A" />
               </div>
-
               <Separator />
-
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span>Utilización aproximada (Cálculo teórico)</span>
+                  <span>Utilización (Jornada {shiftDurationMin / 60}h)</span>
                   <span className="font-medium">{utilizationPct}%</span>
                 </div>
                 <Progress value={utilizationPct} />
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Total de tiempo de procesos registrados contra una jornada de{" "}
-                  {shiftDurationMin / 60} h.
-                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Bloque de “alertas” (Métricas) */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Hourglass className="h-4 w-4 text-sky-500" />
-                Métricas de desempeño
+                <Hourglass className="h-4 w-4 text-sky-500" /> Desempeño
               </CardTitle>
-              <CardDescription>
-                Comparación de tiempo estimado vs. tiempo real.
-              </CardDescription>
+              <CardDescription>Eficiencia basada en estimados.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <p className="text-neutral-500 dark:text-neutral-400">
-                Las métricas de gaps/overtime no se pueden calcular solo con los
-                procesos asignados. La tabla de abajo muestra la comparación por
-                cada proceso.
+              <p className="text-neutral-500">
+                Filtrado activo para la fecha seleccionada en el servidor.
               </p>
-
               <Separator />
-
-              <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="flex items-center gap-2 text-xs text-neutral-500">
                 <Timer className="h-3 w-3" />
-                <span>
-                  Solo se consideran procesos que tienen una hora de inicio
-                  registrada.
-                </span>
+                <span>Solo se muestran procesos con registros de tiempo.</span>
               </div>
             </CardContent>
           </Card>
         </section>
 
-        {/* Línea de tiempo detallada */}
         <section>
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                Detalle de Procesos Asignados
-              </CardTitle>
-              <CardDescription>
-                Procesos donde el operador ha registrado inicio o fin.
-              </CardDescription>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">
+                  Detalle de Operaciones
+                </CardTitle>
+                <CardDescription>
+                  Listado de procesos filtrados por proyecto.
+                </CardDescription>
+              </div>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL_PROJECTS">
+                    Todos los proyectos
+                  </SelectItem>
+                  {uniqueProjects.map((proj) => (
+                    <SelectItem key={proj} value={proj}>
+                      {proj}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardHeader>
             <CardContent>
-              {/* Filtro de Proyecto */}
-              <div className="flex items-center gap-3 mb-4">
-                <Label className="text-xs flex items-center gap-1">
-                  Filtrar por Proyecto:
-                </Label>
-                <Select value={projectFilter} onValueChange={setProjectFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Todos los proyectos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Opción 'Seleccionar Todos' con valor sentinel no vacío */}
-                    <SelectItem value="ALL_PROJECTS">
-                      Todos los proyectos
-                    </SelectItem>
-                    {uniqueProjects.map((proj) => (
-                      <SelectItem key={proj} value={proj}>
-                        {proj}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Inicio</TableHead>
-                      <TableHead>Fin (Real / Actual)</TableHead>
-                      <TableHead className="text-right">
-                        Duración Real
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Duración Estimada
-                      </TableHead>
-                      <TableHead>Proceso</TableHead>
-                      <TableHead>Work Order</TableHead>
-                      <TableHead>WorkStation</TableHead>
-                      <TableHead>Project</TableHead>
+                      <TableHead className="text-center">Inicio</TableHead>
+                      <TableHead className="text-center">Fin</TableHead>
+                      <TableHead className="text-center">Estimado</TableHead>
+                      <TableHead className="text-center">Real</TableHead>
+                      <TableHead className="text-center">Proceso</TableHead>
+                      <TableHead className="text-center">Estación</TableHead>
+                      <TableHead className="text-center">Proyecto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredIntervals.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={8}
+                          colSpan={7}
                           className="py-10 text-center text-sm text-neutral-500"
                         >
-                          No hay procesos registrados para este operador
-                          {projectFilter !== "ALL_PROJECTS"
-                            ? ` en el proyecto ${projectFilter}`
-                            : ""}
-                          .
+                          No hay datos para esta fecha o proyecto.
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredIntervals.map((itv, idx) => {
                         const start = new Date(itv.start);
                         const end = new Date(itv.end);
-
                         let durationStyle = "";
                         if (itv.minutes > 0 && itv.tiempoEstimado > 0) {
-                          if (itv.minutes < itv.tiempoEstimado) {
+                          if (itv.minutes < itv.tiempoEstimado)
                             durationStyle = "text-emerald-600 font-medium";
-                          } else if (itv.minutes > itv.tiempoEstimado * 1.1) {
+                          else if (itv.minutes > itv.tiempoEstimado * 1.1)
                             durationStyle = "text-red-600 font-medium";
-                          }
                         }
-
                         return (
                           <TableRow key={idx}>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="text-center whitespace-nowrap font-mono">
                               {formatTime(start)}
                             </TableCell>
-
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="text-center whitespace-nowrap font-mono">
                               {itv.end === new Date().toISOString()
                                 ? "En Curso"
                                 : formatTime(end)}
                             </TableCell>
-
-                            <TableCell
-                              className={`text-right font-mono ${durationStyle}`}
-                            >
-                              {itv.minutes.toFixed(0)} min
-                            </TableCell>
-
-                            <TableCell className="text-right text-neutral-500 font-mono">
+                            <TableCell className="text-center text-neutral-500 font-mono">
                               {itv.tiempoEstimado
-                                ? `${itv.tiempoEstimado.toFixed(0)} min`
-                                : "N/A"}
+                                ? `${itv.tiempoEstimado.toFixed(0)}m`
+                                : "-"}
                             </TableCell>
-
-                            <TableCell className="text-sm text-neutral-600 dark:text-neutral-300">
+                            <TableCell
+                              className={`text-center font-mono ${durationStyle}`}
+                            >
+                              {itv.minutes.toFixed(0)}m
+                            </TableCell>
+                            <TableCell className="text-center text-sm truncate max-w-[150px]">
                               {itv.operacion}
                             </TableCell>
-
-                            <TableCell className="text-sm text-neutral-600 dark:text-neutral-300">
-                              {itv.operacion}
-                            </TableCell>
-
-                            <TableCell className="text-sm text-neutral-600 dark:text-neutral-300">
+                            <TableCell className="text-center text-sm">
                               {itv.maquinaNombre}
                             </TableCell>
-
-                            <TableCell className="text-sm text-neutral-600 dark:text-neutral-300">
+                            <TableCell className="text-center text-sm">
                               {itv.proyecto}
                             </TableCell>
                           </TableRow>
@@ -595,83 +530,32 @@ export default function LavorPage() {
   );
 }
 
-/* ============================
-   Subcomponente de resumen (SummaryChip)
-================================ */
-function SummaryChip({
-  label,
-  value,
-  detail,
-  muted,
-  warn,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  muted?: boolean;
-  warn?: boolean;
-  highlight?: boolean;
-}) {
+function SummaryChip({ label, value, detail, muted, warn, highlight }: any) {
   let bg =
-    "bg-neutral-50 border-neutral-200 text-neutral-800 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-100";
-  if (muted) {
+    "bg-neutral-50 border-neutral-200 text-neutral-800 dark:bg-neutral-900";
+  if (muted)
     bg =
-      "bg-neutral-100/70 border-neutral-200 text-neutral-700 dark:bg-neutral-900/70 dark:border-neutral-800 dark:text-neutral-300";
-  }
-  if (warn) {
-    bg =
-      "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-900/70 dark:text-amber-100";
-  }
-  if (highlight) {
-    bg =
-      "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-900/70 dark:text-emerald-100";
-  }
+      "bg-neutral-100/70 border-neutral-200 text-neutral-700 dark:bg-neutral-900/70";
+  if (warn) bg = "bg-amber-50 border-amber-200 text-amber-800";
+  if (highlight) bg = "bg-emerald-50 border-emerald-200 text-emerald-800";
 
   return (
     <div className={`rounded-xl border px-3 py-2 ${bg}`}>
-      <div className="text-[11px] uppercase tracking-wide opacity-80">
+      <div className="text-[10px] uppercase tracking-wider opacity-70 font-bold">
         {label}
       </div>
       <div className="text-sm font-semibold">{value}</div>
-      {detail && (
-        <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
-          {detail}
-        </div>
-      )}
+      {detail && <div className="text-[10px] opacity-60">{detail}</div>}
     </div>
   );
 }
 
-/* ============================
-   Componentes de Estado
-================================ */
-
 function LoadingState({ text }: { text: string }) {
   return (
     <div className="flex h-screen items-center justify-center">
-      <div className="flex flex-col items-center space-y-3 text-lg font-medium text-neutral-600 dark:text-neutral-300">
-        <svg
-          className="animate-spin h-6 w-6 text-indigo-500"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-        {text}
+      <div className="flex flex-col items-center space-y-4">
+        <RefreshCcw className="h-8 w-8 animate-spin text-indigo-500" />
+        <p className="text-neutral-500 font-medium">{text}</p>
       </div>
     </div>
   );
@@ -680,10 +564,10 @@ function LoadingState({ text }: { text: string }) {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex h-screen items-center justify-center">
-      <div className="flex flex-col items-center space-y-3 p-6 border border-red-300 rounded-lg bg-red-50 text-red-800">
-        <AlertTriangle className="h-6 w-6" />
-        <p className="text-lg font-medium">Error de Carga</p>
-        <p className="text-sm text-center">{message}</p>
+      <div className="flex flex-col items-center space-y-3 p-6 border border-red-200 rounded-xl bg-red-50 text-red-800">
+        <AlertTriangle className="h-8 w-8" />
+        <p className="font-bold">Error de Datos</p>
+        <p className="text-sm max-w-xs text-center">{message}</p>
       </div>
     </div>
   );
