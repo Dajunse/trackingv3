@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 // ⚠️ ¡IMPORTANTE! Reemplaza esta URL con la ruta real de tu API de Django
-const LOGIN_API_URL = "https://tracking00-production.up.railway.app/api/token/";
+const LOGIN_API_URL =
+  "https://tracking00-production-142e.up.railway.app/api/token/";
 //const LOGIN_API_URL = "http://localhost:8000/api/token/";
 
 export default function LoginPage() {
