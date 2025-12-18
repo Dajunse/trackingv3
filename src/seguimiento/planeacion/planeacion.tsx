@@ -329,7 +329,7 @@ export default function IntakeDePlanos() {
 
     try {
       const response = await fetch(
-        "https://tracking00-production.up.railway.app/api/workorder/",
+        "https://tracking00-production-142e.up.railway.app/api/workorder/",
         //"http://localhost:8000/api/workorder/",
         {
           method: "POST",
