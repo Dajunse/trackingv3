@@ -331,11 +331,13 @@ export default function ScanStation() {
       $procesoOpId: ID!
       $estado: String!
       $observaciones: String
+      $tiempoSetup: Float
     ) {
       finalizarProcesoOp(
         procesoOpId: $procesoOpId
         nuevoEstado: $estado
         observaciones: $observaciones
+        tiempoSetup: $tiempoSetup
       ) {
         id
         estado
@@ -373,6 +375,44 @@ export default function ScanStation() {
   console.log(errorI);
   console.log(errorF);
   console.log(errorO);
+
+  const [tiempoSetupCapturado, setTiempoSetupCapturado] = useState<
+    number | null
+  >(null);
+  const [timeModalOpen, setTimeModalOpen] = useState(false);
+
+  const [estHours, setEstHours] = useState(0);
+  const [estMinutes, setEstMinutes] = useState(0);
+
+  const confirmTimeModal = () => {
+    const totalMinutos = estHours * 60 + estMinutes;
+
+    if (totalMinutos <= 0) {
+      toast.error("El tiempo debe ser mayor a 0");
+      return;
+    }
+
+    setTiempoSetupCapturado(totalMinutos);
+    setTimeModalOpen(false);
+
+    // Ejecutamos la acción de escaneo inmediatamente después de confirmar
+    setTimeout(() => handleScanAction(), 100);
+  };
+
+  // -------- Tiempo estimado helpers --------
+
+  function incHours(delta: number) {
+    setEstHours((h) => Math.min(12, Math.max(0, h + delta))); // Límite de 12h
+  }
+
+  function incMinutes(delta: number) {
+    setEstMinutes((m) => {
+      const next = m + delta;
+      if (next < 0) return 55; // Salta al final
+      if (next > 55) return 0; // Vuelve al inicio
+      return next;
+    });
+  }
 
   // ------------------------- Lógica de Scaneo y Flujo -------------------------
 
@@ -428,6 +468,7 @@ export default function ScanStation() {
             procesoOpId: procesoOpId,
             estado: nuevoEstado,
             observaciones: null, // No hay observaciones en el OK
+            tiempoSetup: tiempoSetupCapturado,
           },
         });
         addScan(
@@ -519,15 +560,6 @@ export default function ScanStation() {
       note,
     };
 
-    // console.log("Registro de Escaneo:", {
-    //   employeeId: employeeId,
-    //   workOrder: workOrder,
-    //   status: status,
-    //   note: note,
-    //   timestamp: item.ts,
-    //   maquinaId: maquinaSeleccionadaId, // loggeamos la máquina
-    // });
-
     setRecent((prev) => [item, ...prev].slice(0, 200));
     setWorkOrder("");
     setPage(1);
@@ -560,6 +592,15 @@ export default function ScanStation() {
 
     if (shouldSelectMachine && !maquinaSeleccionadaId) {
       addScan("error", "Debe seleccionar una máquina para iniciar el proceso.");
+      return;
+    }
+
+    if (
+      procesoId === "3" &&
+      procesoEspecifico?.estado === "in_progress" &&
+      tiempoSetupCapturado === null
+    ) {
+      setTimeModalOpen(true); // Abrir modal del tiempo CNC
       return;
     }
 
@@ -996,7 +1037,6 @@ export default function ScanStation() {
       <h2 className="text-sm font-medium text-muted-foreground mt-6 mb-3">
         Otras acciones
       </h2>
-      {/* ... (El resto del código se mantiene igual, ya que no afecta a estas secciones) */}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* --- Rechazo (SCRAP) --- */}
@@ -1064,6 +1104,132 @@ export default function ScanStation() {
           </p>
         </div>
       </div>
+
+      {/* Modal: tiempo estimado de producción CNC (Solo Proceso 3) */}
+      <Dialog
+        open={timeModalOpen}
+        onOpenChange={(open) => {
+          // Evita que se cierre al hacer click afuera si no se ha confirmado
+          if (!open && tiempoSetupCapturado === null) return;
+          setTimeModalOpen(open);
+        }}
+      >
+        <DialogContent
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          className="sm:max-w-[400px] border-t-4 border-t-blue-600"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <ClipboardList className="h-6 w-6 text-blue-600" />
+              Configuración CNC (Setup)
+            </DialogTitle>
+            <DialogDescription>
+              Indica cuánto tiempo tomó la preparación de la máquina.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6">
+            <div className="flex justify-center items-center gap-6">
+              {/* CONTROL DE HORAS */}
+              <div className="flex flex-col items-center gap-2">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                  Horas
+                </Label>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  type="button"
+                  onClick={() => incHours(1)}
+                  className="h-10 w-10 rounded-full shadow-sm"
+                >
+                  <ChevronRight className="h-5 w-5 -rotate-90" />
+                </Button>
+
+                <div className="text-5xl font-black font-mono tracking-tighter tabular-nums py-2">
+                  {estHours}
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  type="button"
+                  onClick={() => incHours(-1)}
+                  className="h-10 w-10 rounded-full shadow-sm"
+                >
+                  <ChevronRight className="h-5 w-5 rotate-90" />
+                </Button>
+              </div>
+
+              <div className="text-4xl font-light text-muted-foreground/50 mb-2">
+                :
+              </div>
+
+              {/* CONTROL DE MINUTOS */}
+              <div className="flex flex-col items-center gap-2">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                  Minutos
+                </Label>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  type="button"
+                  onClick={() => incMinutes(5)}
+                  className="h-10 w-10 rounded-full shadow-sm"
+                >
+                  <ChevronRight className="h-5 w-5 -rotate-90" />
+                </Button>
+
+                <div className="text-5xl font-black font-mono tracking-tighter tabular-nums py-2">
+                  {estMinutes.toString().padStart(2, "0")}
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  type="button"
+                  onClick={() => incMinutes(-5)}
+                  className="h-10 w-10 rounded-full shadow-sm"
+                >
+                  <ChevronRight className="h-5 w-5 rotate-90" />
+                </Button>
+              </div>
+            </div>
+
+            {/* RESUMEN VISUAL */}
+            <div className="mt-8 mx-4 p-3 bg-blue-50/50 border border-blue-100 rounded-xl flex justify-between items-center">
+              <span className="text-xs font-semibold text-blue-700 uppercase tracking-tight">
+                Tiempo Total
+              </span>
+              <Badge className="bg-blue-600 text-lg px-4 py-0.5 font-mono shadow-md">
+                {estHours}h {estMinutes.toString().padStart(2, "0")}m
+              </Badge>
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-between gap-2 border-t pt-4">
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => {
+                setTimeModalOpen(false);
+                setWorkOrder(""); // Limpiamos para evitar bucles si cancela
+              }}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmTimeModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg shadow-blue-200"
+            >
+              Confirmar y Finalizar
+              <CheckCircle2 className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* --- MODAL DE MOTIVO --- */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
