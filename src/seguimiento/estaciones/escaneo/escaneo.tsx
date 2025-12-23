@@ -457,7 +457,7 @@ export default function ScanStation() {
     const procesoId = procesoEspecifico.proceso.id;
     const operacionId = procesoEspecifico.operacion.id;
 
-    console.log("Tiempo Setup Recibido:", tiempoSetupManual);
+    //console.log("Tiempo Setup Recibido:", tiempoSetupManual);
 
     try {
       // --- LÓGICA PARA INICIAR PROCESO ---
@@ -478,24 +478,12 @@ export default function ScanStation() {
       else if (procesoEspecifico.estado === "in_progress") {
         // CASO: Programación CNC (ID 3) -> Guardar tiempo en Maquinado (ID 4)
         if (procesoId === "3") {
-          console.log("🔍 Detectado Proceso 3 (Programación).");
-
           if (tiempoSetupManual) {
-            console.log("📡 Buscando Maquinado para Op:", operacionId);
-
             const { data: dataMaq } = await getMaquinado({
               variables: { operacionId: operacionId },
             });
 
-            console.log("📦 Resultado getMaquinado:", dataMaq);
-
             if (dataMaq?.getProcesoMaquinado) {
-              console.log(
-                "✅ Maquinado encontrado ID:",
-                dataMaq.getProcesoMaquinado.id
-              );
-
-              // IMPORTANTE: Verifica que el nombre sea tiempo_setup (snake_case)
               const responseSetup = await updateSetup({
                 variables: {
                   procesoOpId: dataMaq.getProcesoMaquinado.id,
