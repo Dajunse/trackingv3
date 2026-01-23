@@ -1137,14 +1137,14 @@ export default function ScanStation() {
         Otras acciones
       </h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {/* --- Tiempo Indirecto --- */}
         <div className="flex flex-col items-center gap-2">
           <Button
             variant="outline"
-            className="w-full gap-2 border-blue-200 hover:bg-blue-50"
+            className="w-full gap-2 border-blue-200 bg-blue-200 hover:bg-blue-50 cursor-pointer"
             onClick={() => openReasonModal("indirecto")} // Necesitas agregar "indirecto" a ModalActionType
-            disabled={!locked || !dataE?.usuario}
+            disabled={!dataE?.usuario}
           >
             <Clock className="h-4 w-4 text-blue-500" /> Registrar Indirecto
           </Button>
@@ -1157,7 +1157,7 @@ export default function ScanStation() {
         <div className="flex flex-col items-center gap-2">
           <Button
             variant="destructive"
-            className="w-full gap-2"
+            className="w-full gap-2 cursor-pointer"
             onClick={() => openReasonModal("rechazo")}
             disabled={!procesoEspecifico}
           >
@@ -1176,7 +1176,7 @@ export default function ScanStation() {
               isPaused
                 ? "bg-green-500 hover:bg-green-600"
                 : "bg-yellow-500 hover:bg-yellow-600"
-            } text-black`}
+            } text-black cursor-pointer`}
             onClick={() => openReasonModal("pausa")} // El modalType será manejado en openReasonModal
             disabled={
               !procesoEspecifico ||
@@ -1207,7 +1207,7 @@ export default function ScanStation() {
         <div className="flex flex-col items-center gap-2">
           <Button
             variant="outline"
-            className="w-full gap-2"
+            className="w-full gap-2 cursor-pointer"
             onClick={() => openReasonModal("problema")}
             disabled={!procesoEspecifico || !workOrder} // Permitir reportar problemas aunque no esté en progreso (si hay WO)
           >
