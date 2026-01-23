@@ -36,6 +36,7 @@ import {
   TriangleAlert,
   PauseCircle,
   Bug,
+  Clock,
 } from "lucide-react";
 
 // NUEVOS COMPONENTES: Modal (Dialog) y Textarea
@@ -62,7 +63,13 @@ import { toast } from "sonner";
 
 /* --------------------------------- Tipos ---------------------------------- */
 type ScanStatus = "ok" | "error" | "warning";
-type ModalActionType = "rechazo" | "pausa" | "problema" | "reanudacion" | "";
+type ModalActionType =
+  | "rechazo"
+  | "pausa"
+  | "problema"
+  | "reanudacion"
+  | "indirecto"
+  | "";
 
 interface ScanItem {
   id: string; // uuid-like
@@ -402,6 +409,16 @@ export default function ScanStation() {
     }
   `;
 
+  const CREAR_INDIRECTO = gql`
+    mutation CrearIndirecto($usuarioId: ID!, $motivo: String!) {
+      crearIndirecto(input: { usuarioId: $usuarioId, motivo: $motivo }) {
+        id
+        motivo
+        horaInicio
+      }
+    }
+  `;
+
   const [registrarObservacion, { loading: loadingO, error: errorO }] =
     useMutation(REGISTRAR_OBSERVACION);
 
@@ -414,7 +431,7 @@ export default function ScanStation() {
   const [estMinutes, setEstMinutes] = useState(0);
 
   const [getMaquinado] = useLazyQuery<GetMaquinadoData, GetMaquinadoVars>(
-    GET_PROCESO_MAQUINADO
+    GET_PROCESO_MAQUINADO,
   );
   const [updateSetup] = useMutation(UPDATE_TIEMPO_SETUP);
 
@@ -433,6 +450,8 @@ export default function ScanStation() {
     // IMPORTANTE: Pasar el valor como argumento aquí
     setTimeout(() => handleScanAction(totalMinutos), 100);
   };
+
+  const [crearIndirecto] = useMutation(CREAR_INDIRECTO);
 
   // -------- Tiempo estimado helpers --------
 
@@ -471,7 +490,7 @@ export default function ScanStation() {
           },
         });
         addScan("ok", `Proceso ${procesoEspecifico.proceso.nombre} iniciado.`);
-        toast.success("▶️ Proceso iniciado");
+        toast.success("▶️ Proceso iniciado. Tiempos indirectos cerrados.");
       }
 
       // --- LÓGICA PARA FINALIZAR PROCESO ---
@@ -494,7 +513,7 @@ export default function ScanStation() {
               toast.info("⏱️ Tiempo de setup asignado a Maquinado CNC");
             } else {
               console.error(
-                "❌ No se encontró el proceso de Maquinado (ID 4) en esta operación."
+                "❌ No se encontró el proceso de Maquinado (ID 4) en esta operación.",
               );
             }
           } else {
@@ -516,7 +535,7 @@ export default function ScanStation() {
         setEstMinutes(0);
         addScan(
           "ok",
-          `Proceso ${procesoEspecifico.proceso.nombre} finalizado.`
+          `Proceso ${procesoEspecifico.proceso.nombre} finalizado.`,
         );
         toast.success("✅ Proceso completado");
       }
@@ -548,14 +567,14 @@ export default function ScanStation() {
         setIsPaused(true);
         addScan(
           "warning",
-          `Proceso Pausado. Motivo: ${observaciones.substring(0, 30)}...`
+          `Proceso Pausado. Motivo: ${observaciones.substring(0, 30)}...`,
         );
         toast.success(`⏸️ Proceso Pausado.`);
       } else {
         setIsPaused(false);
         addScan(
           "ok",
-          `Proceso Reanudado. Motivo: ${observaciones.substring(0, 30)}...`
+          `Proceso Reanudado. Motivo: ${observaciones.substring(0, 30)}...`,
         );
         toast.success(`▶️ Proceso Reanudado.`);
       }
@@ -566,7 +585,7 @@ export default function ScanStation() {
         "error",
         `Error en servidor (${newState.toUpperCase()}): ${
           e.message.split(":")[0]
-        }`
+        }`,
       );
       console.log(errorUpdateStatus);
     } finally {
@@ -644,7 +663,7 @@ export default function ScanStation() {
       } else {
         addScan(
           "error",
-          `Proceso no encontrado para la Operación ${workOrder}.`
+          `Proceso no encontrado para la Operación ${workOrder}.`,
         );
       }
     } else if (loadingP) {
@@ -668,7 +687,7 @@ export default function ScanStation() {
         "error",
         `Proceso marcado como SCRAP: ${
           procesoEspecifico?.proceso.nombre
-        }. Motivo: ${observaciones.substring(0, 30)}...`
+        }. Motivo: ${observaciones.substring(0, 30)}...`,
       );
       toast.success(`❌ Operación SCRAP registrada con éxito.`);
       refetchP(); // Actualizar la vista
@@ -684,12 +703,12 @@ export default function ScanStation() {
   // --- LÓGICA DE REGISTRO DE ACCIÓN GENÉRICA ---
   const handleRegisterAction = async (
     tipoRegistro: string,
-    observaciones: string
+    observaciones: string,
   ) => {
     if (!procesoEspecifico?.id) {
       addScan(
         "error",
-        "Error: Proceso Op ID no encontrado para registrar la acción."
+        "Error: Proceso Op ID no encontrado para registrar la acción.",
       );
       return;
     }
@@ -715,8 +734,8 @@ export default function ScanStation() {
         "warning",
         `${tipoRegistro.replace(
           "_",
-          " "
-        )} registrado: ${observaciones.substring(0, 30)}...`
+          " ",
+        )} registrado: ${observaciones.substring(0, 30)}...`,
       );
       toast.success(`📝 ${tipoRegistro.replace("_", " ")} registrado.`);
       refetchP();
@@ -725,11 +744,30 @@ export default function ScanStation() {
       toast.error(`Error en la operación ${tipoRegistro}:`, e);
       addScan(
         "error",
-        `Error en servidor (${tipoRegistro}): ${e.message.split(":")[0]}`
+        `Error en servidor (${tipoRegistro}): ${e.message.split(":")[0]}`,
       );
     } finally {
       setModalOpen(false);
       setMotivo("");
+    }
+  };
+
+  const handleIndirectoAction = async (motivoSeleccionado: string) => {
+    if (!dataE?.usuario?.id) return;
+
+    try {
+      await crearIndirecto({
+        variables: {
+          usuarioId: dataE.usuario.id,
+          motivo: motivoSeleccionado,
+        },
+      });
+      toast.success(`⏱️ Tiempo de ${motivoSeleccionado} registrado.`);
+      addScan("warning", `Inicio de tiempo indirecto: ${motivoSeleccionado}`);
+    } catch (e: any) {
+      toast.error("Error: " + e.message);
+    } finally {
+      setModalOpen(false);
     }
   };
 
@@ -753,7 +791,7 @@ export default function ScanStation() {
   const handleConfirmModal = () => {
     if (motivo.length < 5) {
       toast.message(
-        "Por favor, ingresa una descripción o motivo de al menos 5 caracteres."
+        "Por favor, ingresa una descripción o motivo de al menos 5 caracteres.",
       );
       return;
     }
@@ -822,7 +860,7 @@ export default function ScanStation() {
     if (procesoEspecifico?.operacion?.id) {
       console.log(
         "Buscando proceso de Maquinado para Operación ID:",
-        procesoEspecifico.operacion.id
+        procesoEspecifico.operacion.id,
       );
 
       // Ejecutamos el query perezoso manualmente para ver qué devuelve
@@ -832,12 +870,12 @@ export default function ScanStation() {
 
       console.log(
         "Resultado de Query Maquinado:",
-        result.data?.getProcesoMaquinado
+        result.data?.getProcesoMaquinado,
       );
 
       if (!result.data?.getProcesoMaquinado) {
         console.warn(
-          "¡OJO!: No se encontró ningún proceso con ID 4 para esta operación en la base de datos."
+          "¡OJO!: No se encontró ningún proceso con ID 4 para esta operación en la base de datos.",
         );
       }
     } else {
@@ -1071,7 +1109,7 @@ export default function ScanStation() {
                       Iniciado:{" "}
                       {procesoEspecifico.horaInicio
                         ? new Date(
-                            procesoEspecifico.horaInicio
+                            procesoEspecifico.horaInicio,
                           ).toLocaleString()
                         : "N/A"}
                     </p>
@@ -1100,6 +1138,21 @@ export default function ScanStation() {
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* --- Tiempo Indirecto --- */}
+        <div className="flex flex-col items-center gap-2">
+          <Button
+            variant="outline"
+            className="w-full gap-2 border-blue-200 hover:bg-blue-50"
+            onClick={() => openReasonModal("indirecto")} // Necesitas agregar "indirecto" a ModalActionType
+            disabled={!locked || !dataE?.usuario}
+          >
+            <Clock className="h-4 w-4 text-blue-500" /> Registrar Indirecto
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            Actividades fuera de la WO (Limpieza, juntas, etc.)
+          </p>
+        </div>
+
         {/* --- Rechazo (SCRAP) --- */}
         <div className="flex flex-col items-center gap-2">
           <Button
@@ -1139,8 +1192,8 @@ export default function ScanStation() {
                   ? "Reanudando..."
                   : "Pausando..." // Mostrar loading
                 : isPaused
-                ? "Reanudar proceso"
-                : "Registrar pausa" // Mostrar texto normal
+                  ? "Reanudar proceso"
+                  : "Registrar pausa" // Mostrar texto normal
             }
           </Button>
           <p className="text-xs text-muted-foreground text-center">
@@ -1292,6 +1345,7 @@ export default function ScanStation() {
               {modalType === "reanudacion" &&
                 "Motivo de la reanudación (FIN)"}{" "}
               {modalType === "problema" && "Descripción del problema"}
+              {modalType === "indirecto" && "Motivo de tiempo indirecto"}
             </DialogTitle>
             <DialogDescription>
               {modalType === "rechazo" &&
@@ -1302,18 +1356,34 @@ export default function ScanStation() {
                 "Registra el motivo o simplemente presiona Confirmar para cerrar el tiempo de pausa."}{" "}
               {modalType === "problema" &&
                 "Describe el incidente o alarma detectada. Un supervisor será notificado."}
+              {modalType === "indirecto" && "Selecciona el motivo"}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <Label htmlFor="motivo-text">Detalles (mín. 5 caracteres)</Label>
-            <Textarea
-              id="motivo-text"
-              placeholder="Ej: Tolerancia fuera de rango, falta de material, etc."
-              rows={4}
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-            />
+            <Label htmlFor="motivo-text">
+              {modalType === "indirecto"
+                ? "Motivo"
+                : "Detalles (mín. 5 caracteres)"}
+            </Label>
+            {modalType === "indirecto" ? (
+              <Select onValueChange={setMotivo} value={motivo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una actividad..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cleaning">Limpieza</SelectItem>
+                  <SelectItem value="maintenance">Mantenimiento</SelectItem>
+                  <SelectItem value="launch">Comida / Break</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Textarea
+                placeholder="Ej: Tolerancia fuera de rango..."
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+            )}
           </div>
 
           <DialogFooter>
@@ -1326,8 +1396,14 @@ export default function ScanStation() {
             </Button>
             <Button
               variant={modalType === "rechazo" ? "destructive" : "default"}
-              onClick={handleConfirmModal}
-              disabled={motivo.length < 5 || loadingF}
+              onClick={
+                modalType === "indirecto"
+                  ? () => handleIndirectoAction(motivo)
+                  : handleConfirmModal
+              }
+              disabled={
+                (modalType !== "indirecto" && motivo.length < 5) || !motivo
+              }
             >
               {loadingF
                 ? "Procesando..."
