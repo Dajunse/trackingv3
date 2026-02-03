@@ -115,7 +115,7 @@ function nuevaOperacionSugerida(proyecto: string) {
   const d = new Date();
   // OP-<Proyecto>-YYMMDD-<ms>
   return `WO-${proyecto || "XXXX"}-${String(d.getFullYear()).slice(2)}${pad(
-    d.getMonth() + 1
+    d.getMonth() + 1,
   )}${pad(d.getDate())}-${d.getHours()}${pad(d.getMinutes())}`;
 }
 
@@ -150,7 +150,7 @@ export default function IntakeDePlanos() {
       label: p.label,
       enabled: p.enabled, // false por defecto
       minutos: p.minutos === 0 ? "" : p.minutos,
-    }))
+    })),
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -162,9 +162,9 @@ export default function IntakeDePlanos() {
     () =>
       procesos.reduce(
         (acc, p) => acc + (p.enabled && p.minutos ? parseFloat(p.minutos) : 0),
-        0
+        0,
       ),
-    [procesos]
+    [procesos],
   );
 
   const payloadQR = useMemo(() => {
@@ -228,7 +228,7 @@ export default function IntakeDePlanos() {
     });
     if (key === 3 && enabled) {
       toast.info(
-        "Se ha seleccionado automáticamente Maquinado CNC por dependencia."
+        "Se ha seleccionado automáticamente Maquinado CNC por dependencia.",
       );
     }
   };
@@ -250,7 +250,7 @@ export default function IntakeDePlanos() {
     }
 
     setProcesos((arr) =>
-      arr.map((p) => (p.key === key ? { ...p, minutos: asNum } : p))
+      arr.map((p) => (p.key === key ? { ...p, minutos: asNum } : p)),
     );
   };
 
@@ -294,7 +294,7 @@ export default function IntakeDePlanos() {
         label: p.label,
         enabled: false,
         minutos: "",
-      }))
+      })),
     );
   };
 
@@ -354,7 +354,7 @@ export default function IntakeDePlanos() {
             // No establezcas Content-Type aquí; FormData lo hace automáticamente
             Accept: "application/json, application/pdf", // Indicamos que podemos recibir PDF
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -414,7 +414,7 @@ export default function IntakeDePlanos() {
         } else {
           console.error("Error del servidor: Respuesta no es JSON.");
           toast.error(
-            "Error al guardar: El servidor no devolvió una respuesta válida."
+            "Error al guardar: El servidor no devolvió una respuesta válida.",
           );
         }
       }
@@ -430,7 +430,7 @@ export default function IntakeDePlanos() {
     handleSubmit();
     if (!noPlano || !noProyecto) {
       toast.error(
-        "Completa al menos No. de Plano y No. de Proyecto antes de imprimir"
+        "Completa al menos No. de Plano y No. de Proyecto antes de imprimir",
       );
       return;
     }

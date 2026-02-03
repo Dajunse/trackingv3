@@ -909,8 +909,8 @@ export default function ScanStation() {
             <CardDescription>
               <div className="flex flex-col gap-1">
                 <span className="font-semibold">Instrucciones:</span>
-                <span>1) Captura tu número de empleado.</span>
-                <span>2) Escanea el código de la Work Order.</span>
+                <span>1) Escanea el código de la Work Order.</span>
+                <span>2) Captura tu número de empleado.</span>
                 <span>3) Selecciona una maquina.</span>
                 <span>4) Registra.</span>
               </div>
@@ -918,7 +918,24 @@ export default function ScanStation() {
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmitScan}>
-              {/* Sección de Operador */}
+              <div>
+                <Label>Work Order (Operación ID)</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Barcode className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    ref={woInputRef}
+                    placeholder="WO-123456 o ID de Operación"
+                    value={workOrder}
+                    onChange={(e) => setWorkOrder(e.target.value.trim())}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  2. Haz clic en el campo y escanea el código QR con la pistola
+                </p>
+              </div>
+
+              <Separator />
+
               <div>
                 <Label>Número de empleado</Label>
                 <div className="mt-1 flex items-center gap-2">
@@ -929,9 +946,6 @@ export default function ScanStation() {
                     placeholder="Ej. 1234"
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value.trim())}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleLockOperator();
-                    }}
                   />
                   {loadingE && (
                     <span className="text-xs text-muted-foreground">
@@ -950,28 +964,6 @@ export default function ScanStation() {
                     1. Haz clic en el campo y presenta tu tarjeta en el lector
                   </p>
                 )}
-              </div>
-
-              <Separator />
-
-              {/* Sección de Work Order */}
-              <div>
-                <Label>Work Order (Operación ID)</Label>
-                <div className="mt-1 flex items-center gap-2">
-                  <Barcode className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    ref={woInputRef}
-                    placeholder="WO-123456 o ID de Operación"
-                    value={workOrder}
-                    onChange={(e) => setWorkOrder(e.target.value.trim())}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSubmitScan();
-                    }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  2. Haz clic en el campo y escanea el código QR con la pistola
-                </p>
               </div>
 
               <div>

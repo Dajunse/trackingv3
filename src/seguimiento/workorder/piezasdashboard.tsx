@@ -63,6 +63,7 @@ interface WorkOrderQueryResult {
         workorder: {
           plano: string;
           categoria: string;
+          fecha: string;
           proyecto: {
             proyecto: string;
           };
@@ -83,7 +84,7 @@ const MOCK_PIEZAS: Pieza[] = [
 function computeStats(p: Pieza) {
   const doneCount = p.procesos.filter((x) => x.estado === "done").length;
   const inProgressCount = p.procesos.filter(
-    (x) => x.estado === "in_progress"
+    (x) => x.estado === "in_progress",
   ).length;
   const scrapCount = p.procesos.filter((x) => x.estado === "scrap").length;
   const pausedCount = p.procesos.filter((x) => x.estado === "paused").length;
@@ -105,7 +106,8 @@ function computeStats(p: Pieza) {
   // 1. PRIORIDAD MÁXIMA: SCRAP
   if (scrapCount > 0) estado = "scrap";
   // 2. PRIORIDAD MEDIA-ALTA: PAUSED
-  else if (pausedCount > 0) estado = "paused"; // 👈 Nueva condición
+  else if (pausedCount > 0)
+    estado = "paused"; // 👈 Nueva condición
   // 3. PRIORIDAD MEDIA: IN_PROGRESS
   else if (inProgressCount > 0) estado = "in_progress";
   // 4. PRIORIDAD BAJA: DONE (solo si todos los pasos están en done)
@@ -153,6 +155,7 @@ export default function PiezasDashboard() {
         workorder {
           plano
           categoria
+          fecha
           proyecto {
             proyecto
           }
@@ -191,9 +194,8 @@ export default function PiezasDashboard() {
         plano: op.workorder.plano,
         proyecto: op.workorder.proyecto.proyecto,
         categoria: op.workorder.categoria as Pieza["categoria"],
+        createdAt: op.workorder.fecha,
         procesos: procesos,
-        // Si necesitas la fecha, tendrías que pedirla en el query (workorder.fecha)
-        createdAt: undefined,
       } as Pieza;
     });
   }, [data, loading, error]);
@@ -207,7 +209,7 @@ export default function PiezasDashboard() {
   const [categoria, setCategoria] = useState<"all" | "A" | "B" | "C">("all");
   const [sortBy, setSortBy] = useState<
     "fecha_desc" | "progreso_desc" | "tiempo_desc"
-  >("progreso_desc"); // Cambiado a progreso como default ya que 'createdAt' puede ser undefined
+  >("fecha_desc"); // Cambiado a progreso como default ya que 'createdAt' puede ser undefined
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
@@ -215,7 +217,7 @@ export default function PiezasDashboard() {
   // Generar la lista de proyectos únicos desde la data final
   const proyectosUnicos = useMemo(
     () => Array.from(new Set(finalPiezas.map((p) => p.proyecto))).sort(),
-    [finalPiezas]
+    [finalPiezas],
   );
 
   // Filtrar sobre la data final
@@ -227,7 +229,7 @@ export default function PiezasDashboard() {
       rows = rows.filter(
         ({ pieza }) =>
           pieza.op.toLowerCase().includes(q) ||
-          pieza.plano.toLowerCase().includes(q)
+          pieza.plano.toLowerCase().includes(q),
       );
     }
 
@@ -246,11 +248,14 @@ export default function PiezasDashboard() {
     // Ordenamiento
     rows.sort((a, b) => {
       if (sortBy === "fecha_desc") {
-        // Al usar solo la API, si createdAt no se pide, se debe ordenar por otro campo.
-        // Si lo necesitas, debes agregarlo al query: workorder { fecha }
-        const ad = a.pieza.createdAt ? Date.parse(a.pieza.createdAt) : 0;
-        const bd = b.pieza.createdAt ? Date.parse(b.pieza.createdAt) : 0;
-        return bd - ad;
+        // Convertimos las strings de fecha (YYYY-MM-DD) a objetos Date para comparar
+        const dateA = a.pieza.createdAt
+          ? new Date(a.pieza.createdAt).getTime()
+          : 0;
+        const dateB = b.pieza.createdAt
+          ? new Date(b.pieza.createdAt).getTime()
+          : 0;
+        return dateB - dateA; // De más reciente a más antiguo
       }
       if (sortBy === "progreso_desc") {
         return b.stats.completedRatio - a.stats.completedRatio;
@@ -484,7 +489,16 @@ export default function PiezasDashboard() {
 
                 {slice.map(({ pieza, stats }) => (
                   <TableRow key={pieza.op}>
-                    <TableCell className="font-medium">{pieza.op}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col">
+                        <span>{pieza.op}</span>
+                        <span className="text-[10px] font-normal text-muted-foreground">
+                          {pieza.createdAt
+                            ? new Date(pieza.createdAt).toLocaleDateString()
+                            : "—"}
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell>{pieza.plano}</TableCell>
                     <TableCell>{pieza.proyecto}</TableCell>
                     <TableCell className="text-center">
