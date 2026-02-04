@@ -1,83 +1,47 @@
 
+const [getWO, { data, loading }] = useLazyQuery<GetWOData, GetWOVariables>(
+    GET_WO_DETALLE,
+    {
+      fetchPolicy: "network-only",
+    },
+  );
 
-query ObtenerProcesoEspecifico {
-  procesoOpPorOperacionYProceso(
-    operacionId: "3", cuando el empleado ve el qr se ve la operacion
-    procesoId: "1"  cuando el empleado escanea se ve el proceso
-  ) {
-    id
-    estado
-    tiempoEstimado
-    usuario {
-      nombre
-    }
-    maquina {
-      nombre
-    }
-  }
-}
-
-query ObtenerProcesoEspecifico($operacionId: ID!, $procesoId: ID!) {
-      procesoOpPorOperacionYProceso(
-        operacionId: $operacionId
-        procesoId: $procesoId
-      ) {
+  
+const GET_WO_DETALLE = gql`
+  query GetWODetalle($plano: String!) {
+    workorderByPlano(plano: $plano) {
+      id
+      plano
+      cantidad
+      proyecto {
+        proyecto
+      }
+      operaciones {
         id
-        estado
-        horaInicio
-        horaFin
-        tiempoRealCalculado
-        tiempoEstimado
-        maquina {
+        operacion
+        totalAlmacen
+        procesos {
           id
-          nombre
-        }
-        usuario {
-          id
-          nombre
-        }
-        proceso {
-          id
-          nombre
-        }
-        operacion {
-          id
-          operacion
-          workorder {
-            plano
-            proyecto {
-              proyecto
-            }
+          conteoActual
+          proceso {
+            nombre
           }
         }
       }
     }
-  `;
+  }
+`;
 
-
-  ---------------------------------------
-
-  {
-  usuario(numero: "E0592") {
-    id
-    nombre
-    procesosAsignados {
-      proceso {
-        nombre
-      }
-      tiempoEstimado
-      horaInicio
-      horaFin
-      tiempoRealCalculado
-      operacion {
-        operacion
-        proyecto {
-          proyecto
-        }
-      }
-      maquina {
-        nombre
-      }
+const REGISTRAR_ENTRADA = gql`
+  mutation RegistrarEntrada($woId: ID!, $opId: ID!, $cant: Int!) {
+    registrarEntradaAlmacen(
+      workorderId: $woId
+      operacionId: $opId
+      cantidad: $cant
+    ) {
+      id
+      cantidad
     }
   }
-}
+`;
+
