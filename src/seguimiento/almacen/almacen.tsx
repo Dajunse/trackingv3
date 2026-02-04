@@ -253,10 +253,10 @@ export default function AlmacenPage() {
         </div>
 
         {/* Columna Derecha: Detalles e Ingreso */}
-        <Card className="md:col-span-2 overflow-hidden shadow-md">
+        <Card className="md:col-span-2 overflow-hidden shadow-md pt-0">
           {operacionSeleccionada ? (
             <>
-              <CardHeader className="bg-slate-50 border-b">
+              <CardHeader className="bg-slate-50 pt-5 border-b">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-xl">
