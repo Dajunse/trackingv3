@@ -150,6 +150,16 @@ const REGISTRAR_OBSERVACION = gql`
   }
 `;
 
+const UPDATE_TIEMPO_SETUP = gql`
+  mutation UpdateTiempoSetup($procesoOpId: ID!, $tiempoSetup: Float!) {
+    updateTiempoSetup(procesoOpId: $procesoOpId, tiempoSetup: $tiempoSetup) {
+      id
+      tiempoSetup
+      estado
+    }
+  }
+`;
+
 export default function ScanStation() {
   const [employeeId, setEmployeeId] = useState("");
   const [workOrder, setWorkOrder] = useState("");
@@ -157,6 +167,7 @@ export default function ScanStation() {
     string | undefined
   >(undefined);
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState("00:00:00");
+  const [tiempoSetup, setTiempoSetup] = useState<string>("");
 
   const woInputRef = useRef<HTMLInputElement>(null);
   const empInputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +196,7 @@ export default function ScanStation() {
     useMutation<RegistrarEscaneoRes>(REGISTRAR_ESCANEO);
 
   const [registrarObs] = useMutation(REGISTRAR_OBSERVACION);
+  const [updateSetup] = useMutation(UPDATE_TIEMPO_SETUP);
 
   useEffect(() => {
     let intervalo: ReturnType<typeof setInterval>;
@@ -232,6 +244,30 @@ export default function ScanStation() {
       } catch (e: any) {
         toast.error(e.message);
         return;
+      }
+    }
+
+    if (
+      procesoEspecifico.proceso.id === "3" &&
+      procesoEspecifico.estado === "pending"
+    ) {
+      const valorSetup = parseFloat(tiempoSetup);
+
+      if (isNaN(valorSetup) || valorSetup <= 0) {
+        return toast.error(
+          "⚠️ El tiempo de setup es obligatorio para Programación.",
+        );
+      }
+
+      try {
+        await updateSetup({
+          variables: {
+            procesoOpId: procesoEspecifico.id,
+            tiempoSetup: valorSetup,
+          },
+        });
+      } catch (e: any) {
+        return toast.error("Error al guardar setup: " + e.message);
       }
     }
 
@@ -327,6 +363,24 @@ export default function ScanStation() {
                 </SelectContent>
               </Select>
             </div>
+            {procesoEspecifico?.proceso.id === "3" &&
+              procesoEspecifico.estado === "pending" && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <Label className="mb-1 text-orange-600 font-semibold">
+                    Tiempo Setup (Minutos)
+                  </Label>
+                  <Input
+                    type="number"
+                    value={tiempoSetup}
+                    onChange={(e) => setTiempoSetup(e.target.value)}
+                    placeholder="Ej: 45"
+                    className="border-orange-300 focus:ring-orange-500"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    * Requerido para el proceso de Programación.
+                  </p>
+                </div>
+              )}
             <Button
               size="lg"
               className="w-full h-10"
