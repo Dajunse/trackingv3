@@ -33,7 +33,7 @@ interface Proceso {
 interface Operacion {
   id: string;
   operacion: string;
-  totalAlmacen: number;
+  stockActual: number;
   procesos: Proceso[];
 }
 
@@ -123,7 +123,7 @@ export function FormularioMovimiento({
 
   const wo = data?.workorderByPlano;
   const opSel = wo?.operaciones.find((o: any) => o.id === selectedOpId);
-  const stockDisponible = opSel?.totalAlmacen || 0;
+  const stockDisponible = opSel?.stockActual || 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

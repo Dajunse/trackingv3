@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 export default function Home() {
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-neutral-100 via-white to-neutral-200 text-neutral-900 dark:from-black dark:via-neutral-950 dark:to-neutral-900 dark:text-neutral-100">
@@ -14,31 +12,6 @@ export default function Home() {
           <p className="max-w-md text-base text-neutral-600 dark:text-neutral-300">
             Aplicación de seguimiento para manufactura
           </p>
-
-          <div>
-            <Link
-              //to="/seguimiento/intake"
-              to="/projects"
-              className="group inline-flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-5 py-3 text-sm font-medium shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              Empezar ahora
-              <svg
-                className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                width="16"
-                height="16"
-              >
-                <path
-                  d="M5 12h14M13 5l7 7-7 7"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
-          </div>
         </section>
 
         {/* Columna derecha: gráfico minimalista */}
@@ -113,8 +86,8 @@ function MinimalProcessChart({
           const circleClass = isCurrent
             ? "text-amber-500 dark:text-amber-400"
             : isDone
-            ? "text-emerald-500 dark:text-emerald-400"
-            : "text-neutral-400 dark:text-neutral-500";
+              ? "text-emerald-500 dark:text-emerald-400"
+              : "text-neutral-400 dark:text-neutral-500";
 
           const labelClass = isCurrent
             ? "fill-neutral-800 dark:fill-neutral-100"

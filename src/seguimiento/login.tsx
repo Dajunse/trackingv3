@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Necesitas useNavigate para redirigir
+import { Link, useNavigate, useLocation } from "react-router-dom"; // Necesitas useNavigate para redirigir
 import { LogIn, User, Lock, ArrowLeft } from "lucide-react";
 
 // --- Importa los componentes de shadcn/ui que estás usando ---
@@ -16,6 +16,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
+interface LocationState {
+  from?: {
+    pathname: string;
+  };
+}
+
 // ⚠️ ¡IMPORTANTE! Reemplaza esta URL con la ruta real de tu API de Django
 const LOGIN_API_URL =
   "https://tracking00-production-142e.up.railway.app/api/token/";
@@ -23,6 +29,9 @@ const LOGIN_API_URL =
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  // 2. Aplica el casting al usar useLocation
+  const location = useLocation();
+  const state = location.state as LocationState;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -48,16 +57,13 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // ✅ LOGIN EXITOSO
-
-        // 1. Guardar los tokens (Acceso y Refresco)
         localStorage.setItem("access_token", data.access);
         localStorage.setItem("refresh_token", data.refresh);
 
-        // 2. Redirigir al usuario a la página protegida (o al inicio)
-        navigate("/newentries", { replace: true });
+        // 3. Usa el estado de forma segura
+        const origin = state?.from?.pathname || "/newentries";
+        navigate(origin, { replace: true });
       } else {
-        // ❌ ERROR DE CREDENCIALES
         // Generalmente Django/Simple JWT retorna un mensaje en el campo 'detail'
         const errorMessage =
           data.detail || "Nombre de usuario o contraseña incorrectos.";

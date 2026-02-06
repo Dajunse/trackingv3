@@ -382,18 +382,29 @@ export default function ScanStation() {
               )}
             <Button
               size="lg"
-              className="w-full h-10"
+              className={`w-full h-10 ${
+                procesoEspecifico?.estado === "done"
+                  ? "bg-green-600 hover:bg-green-600 text-white"
+                  : ""
+              }`}
               onClick={handleAction}
-              disabled={!procesoEspecifico}
+              // Bloqueamos el botón si no hay proceso O si ya está completado
+              disabled={
+                !procesoEspecifico || procesoEspecifico.estado === "done"
+              }
             >
               {!procesoEspecifico
                 ? "Esperando Scan..."
                 : procesoEspecifico.estado === "pending"
                   ? "Iniciar Proceso"
-                  : procesoEspecifico.conteoActual <
-                      procesoEspecifico.operacion.workorder.cantidad
-                    ? `Registrar Pieza (${procesoEspecifico.conteoActual + 1}/${procesoEspecifico.operacion.workorder.cantidad})`
-                    : "Finalizar y Cerrar Orden"}
+                  : procesoEspecifico.estado === "paused"
+                    ? "Reanudar Proceso"
+                    : procesoEspecifico.estado === "done"
+                      ? "✅ Orden Finalizada"
+                      : procesoEspecifico.conteoActual <
+                          procesoEspecifico.operacion.workorder.cantidad
+                        ? `Registrar Pieza (${procesoEspecifico.conteoActual + 1}/${procesoEspecifico.operacion.workorder.cantidad})`
+                        : "Finalizar y Cerrar Orden"}
             </Button>
           </CardContent>
         </Card>
@@ -439,10 +450,12 @@ export default function ScanStation() {
         </Card>
       </div>
 
-      {/* Acciones Secundarias con Componentes Externos */}
+      {/* Sección de acciones secundarias */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <AccionIndirecto usuarioId={dataE?.usuario?.id} />
-        {procesoEspecifico && (
+
+        {/* Solo mostramos estas acciones si hay un proceso y NO está terminado */}
+        {procesoEspecifico && procesoEspecifico.estado !== "done" && (
           <>
             <AccionScrap
               procesoOpId={procesoEspecifico.id}
@@ -457,6 +470,15 @@ export default function ScanStation() {
               onActionSuccess={refetchP}
             />
           </>
+        )}
+
+        {/* Opcional: Badge informativo si ya terminó */}
+        {procesoEspecifico?.estado === "done" && (
+          <div className="col-span-1 md:col-span-3 flex items-center justify-center bg-slate-100 rounded-lg border border-dashed border-slate-300">
+            <p className="text-sm text-slate-500 italic">
+              Acciones de orden deshabilitadas por finalización
+            </p>
+          </div>
         )}
       </div>
     </div>

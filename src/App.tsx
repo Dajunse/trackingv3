@@ -14,6 +14,7 @@ import NewEntryPage from "./seguimiento/newentries";
 import LoginPage from "./seguimiento/login";
 import LavorPage from "./seguimiento/dashboard/lavor";
 import GestionAlmacen from "./seguimiento/almacen/gestionAlmacen";
+import { ProtectedRoute } from "./ProtectedRoute";
 
 function App() {
   return (
@@ -28,10 +29,14 @@ function App() {
         <Route path="/piezas" element={<PiezasDashboard />} />
         <Route path="/pieza/:id" element={<PiezaDashboard />} />
         <Route path="/machines" element={<MaquinasDashboard />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/newentries" element={<NewEntryPage />} />
         <Route path="/lavor" element={<LavorPage />} />
-        <Route path="/almacen" element={<GestionAlmacen />} />
+
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/almacen" element={<GestionAlmacen />} />
+          <Route path="/newentries" element={<NewEntryPage />} />
+        </Route>
+
         <Route path="*" element={<div className="p-6">404</div>} />
       </Routes>
       <Toaster position="bottom-right" richColors />
