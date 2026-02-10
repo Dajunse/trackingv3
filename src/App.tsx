@@ -25,7 +25,6 @@ function App() {
         <Route path="/projects" element={<ImpactoPage />} />
         <Route path="/maquinadocnc" element={<EstacionMaquinado />} />
         <Route path="/escaneo" element={<ScanStation />} />
-        <Route path="/intake" element={<IntakeDePlanos />} />
         <Route path="/piezas" element={<PiezasDashboard />} />
         <Route path="/pieza/:id" element={<PiezaDashboard />} />
         <Route path="/machines" element={<MaquinasDashboard />} />
@@ -33,6 +32,7 @@ function App() {
 
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/intake" element={<IntakeDePlanos />} />
           <Route path="/almacen" element={<GestionAlmacen />} />
           <Route path="/newentries" element={<NewEntryPage />} />
         </Route>
