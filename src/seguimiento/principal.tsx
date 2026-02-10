@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-import { TriangleAlert } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Accordion,
@@ -251,35 +251,33 @@ export function ProjectProgress() {
       if (!acc[projectId]) {
         acc[projectId] = {
           nombre: op.proyecto.proyecto,
-          piezasTotalesMeta: 0,
-          piezasProcesadasReales: 0,
-          operaciones: [],
-          tieneCuelloBotella: false, // Flag para la cabecera
+          totalMeta: 0,
+          totalActual: 0,
+          tieneCuelloBotella: false,
+          detalleProcesos: {}, // Agruparemos procesos similares de distintas operaciones
         };
       }
 
-      let actualOp = 0;
-      let metaOp = op.procesos.length * cantidadWO;
-      let bottleneckEnOp = false;
+      const metaOp = op.procesos.length * cantidadWO;
+      acc[projectId].totalMeta += metaOp;
 
       op.procesos.forEach((p: any, idx: number) => {
-        actualOp += p.conteoActual;
-        // Lógica de Cuello de Botella: el proceso anterior tiene más piezas que el actual
-        if (idx > 0 && op.procesos[idx - 1].conteoActual - p.conteoActual > 3) {
-          bottleneckEnOp = true;
+        acc[projectId].totalActual += p.conteoActual;
+
+        // Lógica de alerta: si hay estancamiento entre pasos
+        const piezasAnteriores =
+          idx > 0 ? op.procesos[idx - 1].conteoActual : cantidadWO;
+        if (piezasAnteriores - p.conteoActual > 5) {
+          acc[projectId].tieneCuelloBotella = true;
         }
-      });
 
-      acc[projectId].piezasTotalesMeta += metaOp;
-      acc[projectId].piezasProcesadasReales += actualOp;
-
-      // Si alguna operación tiene cuello de botella, el proyecto completo se marca
-      if (bottleneckEnOp) acc[projectId].tieneCuelloBotella = true;
-
-      acc[projectId].operaciones.push({
-        ...op,
-        cantidadWO,
-        bottleneckEnOp,
+        // Consolidar procesos por nombre para el resumen
+        const nombreProc = p.proceso.nombre;
+        if (!acc[projectId].detalleProcesos[nombreProc]) {
+          acc[projectId].detalleProcesos[nombreProc] = { actual: 0, meta: 0 };
+        }
+        acc[projectId].detalleProcesos[nombreProc].actual += p.conteoActual;
+        acc[projectId].detalleProcesos[nombreProc].meta += cantidadWO;
       });
 
       return acc;
@@ -287,26 +285,24 @@ export function ProjectProgress() {
 
     return Object.entries(proyectosMap).map(([id, stats]: [string, any]) => {
       const pct =
-        stats.piezasTotalesMeta > 0
+        stats.totalMeta > 0
           ? Math.min(
               100,
-              Math.round(
-                (stats.piezasProcesadasReales / stats.piezasTotalesMeta) * 100,
-              ),
+              Math.round((stats.totalActual / stats.totalMeta) * 100),
             )
           : 0;
       return {
         id,
         proyecto: stats.nombre,
         pct,
-        operaciones: stats.operaciones,
         tieneCuelloBotella: stats.tieneCuelloBotella,
+        procesos: stats.detalleProcesos,
         color:
-          pct >= 80
+          pct >= 100
             ? "bg-emerald-500"
             : pct >= 50
-              ? "bg-amber-500"
-              : "bg-rose-500",
+              ? "bg-blue-500"
+              : "bg-amber-500",
       };
     });
   }, [data, tick]);
@@ -331,115 +327,65 @@ export function ProjectProgress() {
           key={r.id}
           value={r.id}
           className={cn(
-            "rounded-xl border px-4 overflow-hidden shadow-sm transition-colors",
+            "rounded-xl border px-4 shadow-sm transition-all",
             r.tieneCuelloBotella
-              ? "border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/10"
-              : "border-neutral-200/70 bg-white/40 dark:border-neutral-800 dark:bg-neutral-900/40",
+              ? "border-amber-200 bg-amber-50/20 dark:border-amber-900/40"
+              : "border-neutral-200 bg-white/50 dark:border-neutral-800",
           )}
         >
-          <AccordionTrigger className="hover:no-underline py-4">
+          <AccordionTrigger className="hover:no-underline py-5">
             <div className="flex flex-col w-full pr-4 text-left">
-              <div className="mb-2 flex items-center justify-between text-sm">
+              <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold uppercase tracking-tight">
+                  <span className="text-base font-bold uppercase tracking-tight">
                     {r.proyecto}
                   </span>
-
-                  {/* NOTIFICACIÓN EN CABECERA */}
                   {r.tieneCuelloBotella && (
-                    <Badge className="h-5 px-1.5 animate-pulse bg-amber-500 hover:bg-amber-600 text-black border-none font-bold text-[9px]">
-                      <TriangleAlert className="h-3 w-3 mr-1" />
-                      CUELLO DE BOTELLA
+                    <Badge className="bg-amber-500 text-black text-[9px] font-bold animate-pulse">
+                      RETRASO
                     </Badge>
                   )}
+                  {r.pct === 100 && (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  )}
                 </div>
-                <span className="tabular-nums font-mono text-neutral-500">
-                  {r.pct}% Total
-                </span>
+                <span className="font-mono text-sm font-bold">{r.pct}%</span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200/70 dark:bg-neutral-800/70">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
                 <div
-                  className={cn("h-full transition-all duration-700", r.color)}
+                  className={cn("h-full transition-all duration-1000", r.color)}
                   style={{ width: `${r.pct}%` }}
                 />
               </div>
             </div>
           </AccordionTrigger>
 
-          <AccordionContent className="pb-4 pt-2">
-            {r.operaciones.map((op: any) => (
-              <div key={op.id} className="mt-4 first:mt-0">
-                <h4 className="text-[10px] font-bold text-neutral-400 uppercase mb-2 tracking-widest border-b pb-1">
-                  Operación: {op.operacion} · {op.cantidadWO} Piezas Meta
-                </h4>
-                <div className="grid gap-3">
-                  {op.procesos.map((p: any, idx: number) => {
-                    const porcentajeProceso =
-                      (p.conteoActual / op.cantidadWO) * 100;
-
-                    // Lógica para detectar si este paso específico es el que está frenando el flujo
-                    const piezasAnteriores =
-                      idx > 0
-                        ? op.procesos[idx - 1].conteoActual
-                        : op.cantidadWO;
-                    const esCuelloBotella = piezasAnteriores > p.conteoActual;
-                    const piezasEnEspera = piezasAnteriores - p.conteoActual;
-
-                    return (
-                      <div
-                        key={p.id}
-                        className={cn(
-                          "flex flex-col gap-2 rounded-lg p-3 border transition-all",
-                          esCuelloBotella
-                            ? "bg-amber-100/40 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800 shadow-sm"
-                            : "bg-white/60 dark:bg-neutral-800/40 border-neutral-100 dark:border-neutral-700",
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <span
-                              className={cn(
-                                "text-xs font-bold",
-                                p.conteoActual === op.cantidadWO
-                                  ? "text-emerald-600"
-                                  : "text-neutral-800 dark:text-neutral-100",
-                              )}
-                            >
-                              {p.proceso.nombre}
-                            </span>
-                            {esCuelloBotella && (
-                              <span className="text-[10px] text-amber-600 font-bold italic animate-pulse">
-                                {piezasEnEspera} piezas listas para procesar
-                              </span>
-                            )}
-                          </div>
-                          <Badge
-                            className="font-mono text-[10px] bg-white/80 dark:bg-neutral-900/80 text-neutral-600"
-                            variant="outline"
-                          >
-                            {p.conteoActual} / {op.cantidadWO}
-                          </Badge>
-                        </div>
-
-                        {/* Barra de progreso por etapa */}
-                        <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden dark:bg-neutral-700">
-                          <div
-                            className={cn(
-                              "h-full transition-all duration-500",
-                              p.conteoActual === op.cantidadWO
-                                ? "bg-emerald-500"
-                                : "bg-blue-500",
-                              p.estado === "in_progress" && "animate-pulse",
-                            )}
-                            style={{ width: `${porcentajeProceso}%` }}
-                          />
-                        </div>
+          <AccordionContent className="pb-6 border-t border-neutral-100 dark:border-neutral-800 mt-2 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {Object.entries(r.procesos).map(
+                ([nombre, stat]: [string, any]) => (
+                  <div
+                    key={nombre}
+                    className="flex items-center justify-between p-2 rounded-lg bg-neutral-100/50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-neutral-800"
+                  >
+                    <span className="text-xs font-medium">{nombre}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-neutral-500">
+                        {stat.actual} / {stat.meta}
+                      </span>
+                      <div className="w-12 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-neutral-400"
+                          style={{
+                            width: `${(stat.actual / stat.meta) * 100}%`,
+                          }}
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
           </AccordionContent>
         </AccordionItem>
       ))}
