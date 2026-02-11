@@ -46,16 +46,23 @@ type GetProcesosOperacionQuery = {
   }>;
 };
 
+function formatDuration(totalMinutes: number): string {
+  const roundedMins = Math.round(totalMinutes);
+  if (roundedMins < 60) return `${roundedMins}m`;
+  const hours = Math.floor(roundedMins / 60);
+  const mins = roundedMins % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
 function minsSince(ts?: string | null) {
   if (!ts) return 0;
   const diffMs = Date.now() - new Date(ts).getTime();
   return Math.max(0, Math.floor(diffMs / 60000));
 }
 
-function fmtElapsed(mins: number) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return h <= 0 ? `${m}m` : `${h}h ${m}m`;
+function fmtElapsed(totalSeconds: number) {
+  const mins = Math.floor(totalSeconds / 60);
+  return formatDuration(mins);
 }
 
 function barPct(elapsed: number, target: number) {
@@ -259,7 +266,7 @@ export default function MaquinasDashboard() {
                 {areaMachines.length}
               </Badge>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {areaMachines.map((m) => (
                 <MachineCard key={m.id} m={m} />
               ))}
@@ -318,13 +325,13 @@ function MachineCard({ m }: { m: Machine }) {
 
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-black/5">
           <div className="flex flex-col">
-            <span className="text-[9px] text-neutral-400 uppercase">
-              Estimado
+            <span className="text-[9px] text-neutral-400 uppercase">TEF</span>
+            <span className="font-bold text-neutral-700">
+              {formatDuration(target)}
             </span>
-            <span className="font-bold text-neutral-700">{target}m</span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-[9px] text-neutral-400 uppercase">Real</span>
+            <span className="text-[9px] text-neutral-400 uppercase">TRF</span>
             <span
               className={cn(
                 "font-bold",

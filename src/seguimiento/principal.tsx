@@ -29,6 +29,14 @@ type OperacionesQueryResult = {
   }>;
 };
 
+function formatDuration(totalMinutes: number): string {
+  const roundedMins = Math.round(totalMinutes);
+  if (roundedMins < 60) return `${roundedMins}m`;
+  const hours = Math.floor(roundedMins / 60);
+  const mins = roundedMins % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
 export default function ImpactoPage() {
   return (
     <div className="min-h-screen w-full bg-neutral-50 px-6 py-12 text-neutral-900 dark:bg-black dark:text-neutral-100 lg:px-12">
@@ -212,13 +220,13 @@ export function ProjectProgress() {
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5 text-blue-500" />
                     <span>
-                      Est: <b>{r.totalEstimado}m</b>
+                      Est: <b>{formatDuration(r.totalEstimado)}</b>
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="h-2 w-2 rounded-full bg-orange-500" />
                     <span>
-                      Real: <b>{r.totalReal}m</b>
+                      Real: <b>{formatDuration(r.totalReal)}</b>
                     </span>
                   </div>
                 </div>
@@ -279,7 +287,7 @@ export function ProjectProgress() {
                           <div className="flex flex-col">
                             <span>Estimado</span>
                             <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                              {Math.round(stat.estimado)}m
+                              {formatDuration(stat.estimado)}
                             </span>
                           </div>
                           <div className="flex flex-col items-end">
@@ -292,7 +300,7 @@ export function ProjectProgress() {
                                   : "text-emerald-600",
                               )}
                             >
-                              {Math.round(stat.real)}m
+                              {formatDuration(stat.real)}
                             </span>
                           </div>
                         </div>
