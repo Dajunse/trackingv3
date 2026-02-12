@@ -322,9 +322,13 @@ function MachineCard({ m }: { m: Machine }) {
 
   return (
     <Card
-      className={cn("border shadow-sm transition-all", color.border, color.bg)}
+      className={cn(
+        "border shadow-sm transition-all pt-2 pb-3",
+        color.border,
+        color.bg,
+      )}
     >
-      <CardContent className="p-3 space-y-2 text-[12px]">
+      <CardContent className="pl-3 pr-3 pt-0 space-y-2 text-[12px]">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold truncate">
             {m.name}
