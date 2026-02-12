@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { gql, NetworkStatus } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -208,7 +208,7 @@ export default function MaquinasDashboardPage() {
       .map((item) => ({
         id: item.id,
         name: item.maquina!.nombre,
-        piece: item.proceso?.nombre || null,
+        piece: item.operacion?.operacion || null,
         operator: item.usuario?.nombre || null,
         status: (item.estado.toLowerCase() === "in_progress"
           ? "running"
@@ -245,7 +245,7 @@ export default function MaquinasDashboardPage() {
           <div className="h-4">
             <div
               className={cn(
-                "flex items-center gap-2 text-[10px] font-bold text-blue-600 transition-all duration-500",
+                "flex items-center gap-2 text-[12px] font-bold text-blue-600 transition-all duration-500",
                 isRefetching
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 -translate-y-1",
@@ -281,7 +281,7 @@ export default function MaquinasDashboardPage() {
           </Select>
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-4 text-[10px] font-bold text-neutral-400">
+        <div className="mb-4 flex flex-wrap gap-4 text-[12px] font-bold text-neutral-400">
           <LegendDot className="bg-emerald-500" label="En Tiempo" />
           <LegendDot className="bg-amber-500" label="Sobre TEF < 125%" />
           <LegendDot className="bg-red-500" label="Excedente < 150%" />
@@ -324,7 +324,7 @@ function MachineCard({ m }: { m: Machine }) {
     <Card
       className={cn("border shadow-sm transition-all", color.border, color.bg)}
     >
-      <CardHeader className="p-3 pb-2 border-b bg-white/40">
+      <CardContent className="p-3 space-y-2 text-[12px]">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold truncate">
             {m.name}
@@ -337,8 +337,6 @@ function MachineCard({ m }: { m: Machine }) {
             )}
           />
         </div>
-      </CardHeader>
-      <CardContent className="p-3 space-y-2 text-[12px]">
         <StackedRow label="Pieza">
           {m.piece ? (
             <strong>{m.piece}</strong>
@@ -398,7 +396,7 @@ function MachineCard({ m }: { m: Machine }) {
             </div>
             <div
               className={cn(
-                "mt-1 text-[10px] font-medium leading-tight",
+                "mt-1 text-[12px] font-medium leading-tight",
                 color.text,
               )}
             >
@@ -421,7 +419,7 @@ function MachineCard({ m }: { m: Machine }) {
         <div className="pt-1">
           <Badge
             className={cn(
-              "text-[9px] tracking-tighter h-5",
+              "text-[12px] tracking-tighter h-5",
               m.status === "running"
                 ? "bg-emerald-600"
                 : m.status === "paused"
@@ -448,7 +446,7 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-neutral-400 font-medium text-[9px]">{label}</span>
+      <span className="text-neutral-400 font-medium text-[12px]">{label}</span>
       <div className="text-right font-bold text-neutral-700">{children}</div>
     </div>
   );
@@ -463,7 +461,7 @@ function StackedRow({
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="text-[9px] font-bold text-neutral-400 tracking-tighter">
+      <div className="text-[12px] font-bold text-neutral-400 tracking-tighter">
         {label}
       </div>
       <div className="truncate text-neutral-800 leading-tight">{children}</div>
@@ -486,7 +484,7 @@ function AcronymLabel({
       >
         {short}
       </button>
-      <span className="pointer-events-none absolute left-0 top-full z-10 mt-1 w-56 rounded-md border bg-white p-2 text-[10px] leading-snug text-foreground shadow-xl opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <span className="pointer-events-none absolute left-0 top-full z-10 mt-1 w-56 rounded-md border bg-white p-2 text-[12px] leading-snug text-foreground shadow-xl opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         {description}
       </span>
     </span>
