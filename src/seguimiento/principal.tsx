@@ -223,21 +223,12 @@ export default function ProyectosPage() {
     );
 
     return [...result].sort((a, b) => {
-      if (sortBy === "urgency") {
-        // Menor progreso primero (Atención inmediata)
-        return a.progressPct - b.progressPct;
-      }
-      if (sortBy === "progress") {
-        // Mayor progreso primero (Cerca de terminar)
-        return b.progressPct - a.progressPct;
-      }
-      if (sortBy === "name") {
-        // Alfabético
-        return a.code.localeCompare(b.code);
-      }
+      if (sortBy === "urgency") return a.progressPct - b.progressPct;
+      if (sortBy === "progress") return b.progressPct - a.progressPct;
+      if (sortBy === "name") return a.code.localeCompare(b.code);
       return 0;
     });
-  }, [data, tick]);
+  }, [data, tick, sortBy]);
 
   return (
     <div className="min-h-screen bg-white px-5 py-10 text-neutral-900 lg:px-8">
