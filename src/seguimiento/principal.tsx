@@ -74,7 +74,7 @@ const GET_DATOS = gql`
 export default function ProyectosPage() {
   const [tick, setTick] = useState(0);
   const [sortBy, setSortBy] = useState<"progress" | "name" | "urgency">(
-    "urgency",
+    "progress",
   );
 
   useEffect(() => {
@@ -223,8 +223,8 @@ export default function ProyectosPage() {
     );
 
     return [...result].sort((a, b) => {
-      if (sortBy === "urgency") return a.progressPct - b.progressPct;
       if (sortBy === "progress") return b.progressPct - a.progressPct;
+      if (sortBy === "urgency") return a.progressPct - b.progressPct;
       if (sortBy === "name") return a.code.localeCompare(b.code);
       return 0;
     });
@@ -256,14 +256,14 @@ export default function ProyectosPage() {
             <div className="flex items-center gap-2 float-right">
               <div className="flex bg-neutral-100 p-1 rounded-lg border border-neutral-200">
                 <FilterButton
-                  active={sortBy === "urgency"}
-                  label="Urgencia (0-100%)"
-                  onClick={() => setSortBy("urgency")}
-                />
-                <FilterButton
                   active={sortBy === "progress"}
                   label="Avance (100-0%)"
                   onClick={() => setSortBy("progress")}
+                />
+                <FilterButton
+                  active={sortBy === "urgency"}
+                  label="Urgencia (0-100%)"
+                  onClick={() => setSortBy("urgency")}
                 />
                 <FilterButton
                   active={sortBy === "name"}
