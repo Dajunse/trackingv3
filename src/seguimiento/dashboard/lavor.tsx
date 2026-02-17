@@ -491,6 +491,7 @@ export default function LavorPage() {
                     (acc, p) => acc + p.duracionMinutos,
                     0,
                   );
+
                   return (
                     <TableRow key={i}>
                       <TableCell className="text-center font-mono text-xs">
@@ -504,28 +505,50 @@ export default function LavorPage() {
                       <TableCell className="text-center text-neutral-400 text-xs">
                         {formatDuration(itv.tiempoEstimado)}
                       </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-center font-bold text-xs",
-                          itv.minutes > itv.tiempoEstimado
-                            ? "text-red-500"
-                            : "text-emerald-500",
-                        )}
-                      >
-                        {formatDuration(itv.minutes)}
+                      <TableCell className="text-center">
+                        <div className="flex flex-row items-center justify-center gap-2">
+                          {/* Tiempo Real */}
+                          <span
+                            className={cn(
+                              "font-bold text-xs whitespace-nowrap",
+                              itv.minutes < 2
+                                ? "text-amber-600"
+                                : itv.minutes > itv.tiempoEstimado
+                                  ? "text-red-500"
+                                  : "text-emerald-500",
+                            )}
+                          >
+                            {formatDuration(itv.minutes)}
+                          </span>
+
+                          {/* Badge de Alerta (< 2m) al lado */}
+                          {itv.minutes >= 0 && itv.minutes < 2 && (
+                            <div className="bg-amber-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shadow-sm border border-amber-600 flex-none">
+                              ¡Revisar!
+                            </div>
+                          )}
+
+                          {/* Badge de Eficiencia al lado */}
+                          {itv.minutes >= 2 &&
+                            itv.minutes < itv.tiempoEstimado && (
+                              <div className="bg-emerald-100 text-emerald-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight border border-emerald-200 flex-none">
+                                Alta Eficiencia
+                              </div>
+                            )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center text-sm">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-row items-center justify-center gap-1">
                           {totalPausasMin > 0 ? (
                             <>
                               <span className="font-semibold text-xs">
                                 {formatDuration(totalPausasMin)}
                               </span>
-                              <div className="text-[10px] text-neutral-500 space-y-1">
+                              <span className="text-[10px] text-neutral-500 mt-1">
                                 {itv.pausas.map((p, idx) => (
                                   <div key={idx}>{p.motivo}</div>
                                 ))}
-                              </div>
+                              </span>
                             </>
                           ) : (
                             <span className="text-neutral-400">—</span>
