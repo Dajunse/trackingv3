@@ -2,11 +2,11 @@ import { useMemo, useEffect } from "react";
 import { gql, NetworkStatus } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
+  // BarChart,
+  // Bar,
+  // XAxis,
+  // YAxis,
+  // CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Cell,
@@ -199,7 +199,7 @@ export default function AnalyticsProcesosPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Gráfico de Barras */}
-          <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-black/5">
+          {/* <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-black/5">
             <CardHeader>
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
                 Eficiencia Productiva
@@ -273,7 +273,7 @@ export default function AnalyticsProcesosPage() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Gráfico de Pastel: Distribución de Carga Real */}
           <Card className="border-none shadow-sm ring-1 ring-black/5">

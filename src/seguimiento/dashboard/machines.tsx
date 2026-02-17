@@ -389,52 +389,59 @@ export default function MaquinasDashboardPage() {
           <LegendDot className="bg-orange-500" label="Pausado" />
         </div>
 
-        <div className="space-y-10">
+        <div className="flex flex-wrap gap-x-10 gap-y-12 items-start">
+          {/* Mapeo de áreas en el orden deseado */}
           {desiredOrder.map((areaName) => {
             const key = normalize(areaName);
             const machinesInArea = groupedMachines[key];
 
-            // Si no hay máquinas en esta área con los filtros actuales, no mostramos la sección
             if (!machinesInArea || machinesInArea.length === 0) return null;
 
             return (
-              <section key={key} className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-400">
+              <section key={key} className="flex-none mt-10">
+                {/* Header de área compacto */}
+                <div className="flex items-center gap-2 mb-3 border-b border-neutral-200 pb-1.5">
+                  <h2 className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
                     {areaName}
                   </h2>
-                  <div className="h-px flex-1 bg-neutral-200" />
-                  <Badge variant="outline" className="text-neutral-400">
+                  <Badge
+                    variant="secondary"
+                    className="h-4 px-1.5 text-[9px] bg-neutral-200 text-neutral-600 border-none font-bold"
+                  >
                     {machinesInArea.length}
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {/* Contenedor de cards con flujo flexible */}
+                <div className="flex flex-wrap gap-3">
                   {machinesInArea.map((m) => (
-                    <MachineCard key={m.id} m={m} />
+                    <div key={m.id} className="w-[190px] h-[210px] flex-none">
+                      <MachineCard m={m} />
+                    </div>
                   ))}
                 </div>
               </section>
             );
           })}
 
-          {/* Sección para máquinas que no están en el desiredOrder */}
+          {/* 2. Sección de "Otros Procesos" integrada al flujo horizontal */}
           {Object.keys(groupedMachines).some(
             (k) => !desiredOrder.map(normalize).includes(k),
           ) && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-4">
-                <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-400">
+            <section className="flex-none min-w-[200px]">
+              <div className="flex items-center gap-2 mb-3 border-b border-neutral-200 pb-1.5">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
                   Otros Procesos
                 </h2>
-                <div className="h-px flex-1 bg-neutral-200" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="flex flex-wrap gap-3">
                 {Object.entries(groupedMachines)
                   .filter(([k]) => !desiredOrder.map(normalize).includes(k))
                   .flatMap(([_, machines]) => machines)
                   .map((m) => (
-                    <MachineCard key={m.id} m={m} />
+                    <div key={m.id} className="w-[190px] flex-none">
+                      <MachineCard m={m} />
+                    </div>
                   ))}
               </div>
             </section>
