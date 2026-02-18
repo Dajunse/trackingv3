@@ -4,8 +4,6 @@ import { useQuery } from "@apollo/client/react";
 import { format, startOfHour, addHours } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-// Recharts para la distribución de uso de la máquina
 import {
   AreaChart,
   Area,
