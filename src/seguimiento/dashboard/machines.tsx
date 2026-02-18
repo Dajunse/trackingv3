@@ -475,16 +475,17 @@ function MachineCard({
   tick: number;
 }) {
   const elapsed = useMemo(() => {
+    // 1. Si está en pausa, mostrar el tiempo efectivo congelado del servidor
     if (m.status === "paused") {
       return m.tiempoEfectivoServer;
     }
-
+    // 2. Si está trabajando, usamos el tiempo efectivo del servidor como base
     if (m.status === "running" && m.startedAt) {
-      return minsSince(m.startedAt);
+      return m.tiempoEfectivoServer;
     }
 
     return 0;
-  }, [m.status, m.tiempoEfectivoServer, m.startedAt, tick]);
+  }, [m.status, m.tiempoEfectivoServer, tick]);
   const X = m.cycleTargetMin ?? 0;
   const pct = barPct(elapsed, X);
   const color = statusColor(m);
