@@ -59,12 +59,6 @@ type GetMonitoreoMaquinasQuery = {
   }>;
 };
 
-function minsSince(ts?: string | null) {
-  if (!ts) return 0;
-  const diffMs = Date.now() - new Date(ts).getTime();
-  return Math.max(0, Math.floor(diffMs / 60000));
-}
-
 function formatDuration(totalMinutes: number): string {
   const roundedMins = Math.round(totalMinutes);
   if (roundedMins < 60) return `${roundedMins}m`;
@@ -89,7 +83,7 @@ function getTimingLevel(elapsed: number, target: number): TimingLevel {
   return "over_50_plus";
 }
 
-function statusColor(machine: Machine) {
+function statusColor(machine: Machine, currentElapsed: number) {
   if (machine.status === "paused")
     return {
       bg: "bg-orange-50",
@@ -116,9 +110,9 @@ function statusColor(machine: Machine) {
     };
 
   // running -> thresholds por TEF
-  const elapsed = minsSince(machine.startedAt);
+
   const X = machine.cycleTargetMin ?? 0;
-  const level = getTimingLevel(elapsed, X);
+  const level = getTimingLevel(currentElapsed, X);
   if (level === "over_50_plus")
     return {
       bg: "bg-rose-100",
@@ -488,7 +482,7 @@ function MachineCard({
   }, [m.status, m.tiempoEfectivoServer, tick]);
   const X = m.cycleTargetMin ?? 0;
   const pct = barPct(elapsed, X);
-  const color = statusColor(m);
+  const color = statusColor(m, elapsed);
   const exceededMin = X > 0 ? Math.max(0, elapsed - X) : 0;
   const timingLevel = getTimingLevel(elapsed, X);
 
