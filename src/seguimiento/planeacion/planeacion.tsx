@@ -315,11 +315,10 @@ export default function IntakeDePlanos() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // 1. Prepara la lista de ProcesoPlano
+
     const procesos_operacion = procesos
       .filter((p) => p.enabled === true && p.minutos)
       .map((proceso) => ({
-        // Usamos .key, que son los IDs de Proceso
         proceso: proceso.key,
         tiempo_estimado: parseFloat(proceso.minutos || "0"),
       }));
@@ -343,7 +342,6 @@ export default function IntakeDePlanos() {
       categoria: categoria,
       cantidad: cantidad ?? 1,
       observaciones: observaciones,
-
       operacion_data: operacionData,
     };
 
