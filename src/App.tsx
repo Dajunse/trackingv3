@@ -10,7 +10,7 @@ import AppNav from "./components/ui/appnav";
 import ScanStation from "./seguimiento/estaciones/escaneo/escaneo";
 import MaquinasDashboard from "./seguimiento/dashboard/machines";
 import ImpactoPage from "./seguimiento/principal";
-import NewEntryPage from "./seguimiento/newentries";
+import NewEntryPage from "./seguimiento/admin/newentries";
 import LoginPage from "./seguimiento/login";
 import LavorPage from "./seguimiento/dashboard/lavor";
 import GestionAlmacen from "./seguimiento/almacen/gestionAlmacen";
