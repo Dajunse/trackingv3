@@ -179,12 +179,17 @@ export default function PiezasDashboard() {
     }
 
     return data.operaciones.map((op) => {
-      const procesos: Paso[] = op.procesos.map((pr) => ({
-        key: pr.proceso.nombre.toLowerCase().replace(/\s/g, "_"),
-        label: pr.proceso.nombre,
-        minutos: pr.tiempoEstimado || 0,
-        estado: pr.estado,
-      }));
+      const procesos: Paso[] = op.procesos.map((pr) => {
+        // Validamos que pr.proceso y pr.proceso.nombre existan antes de llamar a toLowerCase()
+        const nombreProceso = pr.proceso?.nombre || "Proceso sin nombre";
+
+        return {
+          key: nombreProceso.toLowerCase().replace(/\s/g, "_"),
+          label: nombreProceso,
+          minutos: pr.tiempoEstimado || 0,
+          estado: pr.estado,
+        };
+      });
 
       return {
         id: op.id.toString(),
