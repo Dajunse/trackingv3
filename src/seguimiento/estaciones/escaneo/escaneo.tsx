@@ -61,6 +61,7 @@ interface ProcesoOpData {
     }>;
     horaInicio: string | null;
     conteoActual: number;
+    conteoParcial: number;
     operacion: { id: string; workorder: { cantidad: number } };
     proceso: { id: string; nombre: string };
   } | null;
@@ -74,11 +75,11 @@ interface RegistrarSesionRes {
   registrarSesionTrabajo: {
     id: string;
     estado: string;
-    conteoActual: number;
     procesoOp: {
       id: string;
       estado: string;
       conteoActual: number;
+      conteoParcial: number;
     };
   };
 }
@@ -126,6 +127,7 @@ const GET_PROCESO = gql`
       estado
       horaInicio
       conteoActual
+      conteoParcial
       operacion {
         id
         workorder {
@@ -172,10 +174,10 @@ const INICIAR_SESION = gql`
       maquinaId: $maquinaId
     ) {
       id
-      conteoParcial
       procesoOp {
         id
         conteoActual
+        conteoParcial
         estado
       }
     }
@@ -311,6 +313,14 @@ export default function ScanStation() {
     }
   }, [data]);
 
+  const estaTrabajandoPieza = procesoEspecifico
+    ? procesoEspecifico.conteoParcial > procesoEspecifico.conteoActual
+    : false;
+
+  const numeroPiezaVisual = estaTrabajandoPieza
+    ? procesoEspecifico?.conteoParcial
+    : (procesoEspecifico?.conteoActual || 0) + 1;
+
   const [registrarObs] = useMutation(REGISTRAR_OBSERVACION);
 
   useEffect(() => {
@@ -391,30 +401,10 @@ export default function ScanStation() {
   const ejecutarRegistroEscaneo = async () => {
     if (!procesoEspecifico || !dataE?.usuario?.id) return;
 
-    const conteoPrevio = procesoEspecifico.conteoActual;
     const meta = procesoEspecifico.operacion.workorder.cantidad;
 
-    // 1. BLOQUEO: Si ya se alcanzó la meta, no registrar más piezas.
-    if (conteoPrevio >= meta) {
-      if (procesoEspecifico.proceso.id === "3") {
-        setIsFinalizeModalOpen(true);
-      } else {
-        sileo.error({
-          duration: 3000,
-          title: "Esta orden ya está completa.",
-          fill: "black",
-          styles: {
-            title: "text-white!",
-            description: "text-white/75!",
-          },
-          position: "top-center",
-        });
-      }
-      return;
-    }
-
     try {
-      const { data } = await registrarSesion({
+      const { data: resMutation } = await registrarSesion({
         variables: {
           procesoOpId: procesoEspecifico.id,
           usuarioId: dataE.usuario.id,
@@ -422,56 +412,49 @@ export default function ScanStation() {
         },
       });
 
-      const res = data?.registrarSesionTrabajo;
-      if (!res || !res.procesoOp) return;
+      const res = resMutation?.registrarSesionTrabajo;
 
-      const nuevoConteo = res.procesoOp.conteoActual;
+      if (res) {
+        // Lógica numérica: Si mi conteo personal es mayor al global, acabo de INICIAR
+        const acabaDeIniciar =
+          res.procesoOp.conteoParcial > res.procesoOp.conteoActual;
 
-      // 2. Lógica de mensajes y apertura de modal
-      if (nuevoConteo === 0) {
-        sileo.success({
-          duration: 3000,
-          title: "Sesión iniciada",
-          fill: "black",
-          styles: {
-            title: "text-white!",
-            description: "text-white/75!",
-          },
-          position: "top-center",
-        });
-      } else if (nuevoConteo >= meta) {
-        sileo.success({
-          duration: 3000,
-          title: "¡Orden completada!",
-          fill: "black",
-          styles: {
-            title: "text-white!",
-            description: "text-white/75!",
-          },
-          position: "top-center",
-        });
-        if (procesoEspecifico.proceso.id === "3") {
-          setIsFinalizeModalOpen(true);
+        if (acabaDeIniciar) {
+          sileo.info({
+            duration: 3000,
+            title: `Pieza #${res.procesoOp.conteoParcial} Iniciada`,
+            description:
+              "Escanea de nuevo al terminar la unidad para registrarla.",
+            fill: "black",
+            styles: {
+              title: "text-white!",
+              description: "text-white/75!",
+            },
+            position: "top-center",
+          });
+        } else {
+          // Si son iguales, es porque el global alcanzó al parcial (PIEZA FINALIZADA)
+          sileo.success({
+            duration: 3000,
+            title: `Pieza #${res.procesoOp.conteoParcial} Finalizada`,
+            description: `Progreso total: ${res.procesoOp.conteoActual} / ${meta}`,
+            fill: "black",
+            styles: {
+              title: "text-white!",
+              description: "text-white/75!",
+            },
+            position: "top-center",
+          });
         }
-      } else {
-        sileo.info({
-          duration: 3000,
-          title: "Pieza registrada",
-          description: `${nuevoConteo} / ${meta}`,
-          fill: "black",
-          styles: {
-            title: "text-white!",
-            description: "text-white/75! text-center",
-          },
-          position: "top-center",
-        });
       }
 
       refetchP();
+      // Forzamos la actualización de la sesión activa para que el botón cambie de estado
+      consultarSesion({ variables: { numero: employeeId } });
     } catch (e: any) {
       sileo.error({
         duration: 3000,
-        title: "Error al registrar pieza",
+        title: "Error al registrar escaneo",
         description: e.message,
         fill: "black",
         styles: {
@@ -557,14 +540,14 @@ export default function ScanStation() {
             <Button
               size="lg"
               className={cn(
-                "w-full h-10 transition-all bg-indigo-600 hover:bg-indigo-700 disabled:cursor-not-allowed",
-                procesoEspecifico?.estado === "done"
-                  ? "bg-green-600"
-                  : esScrap
-                    ? "bg-red-800"
-                    : bloqueadoPorPausa
-                      ? "bg-orange-500"
-                      : "",
+                "w-full h-10 transition-all disabled:cursor-not-allowed",
+                // Cambiamos a Ámbar si está trabajando para indicar "Pendiente de cierre"
+                estaTrabajandoPieza
+                  ? "bg-amber-600 hover:bg-amber-700 animate-pulse"
+                  : "bg-indigo-600 hover:bg-indigo-700",
+                procesoEspecifico?.estado === "done" && "bg-green-600",
+                esScrap && "bg-red-800",
+                bloqueadoPorPausa && "bg-orange-500",
               )}
               onClick={handleAction}
               disabled={
@@ -581,10 +564,9 @@ export default function ScanStation() {
                     ? "Sesión en Pausa"
                     : procesoEspecifico.estado === "done"
                       ? "Orden Finalizada"
-                      : procesoEspecifico.conteoActual >=
-                          procesoEspecifico.operacion.workorder.cantidad
-                        ? "Cargar Tiempo Setup"
-                        : `Registrar Pieza (${procesoEspecifico.conteoActual + 1}/${procesoEspecifico.operacion.workorder.cantidad})`}
+                      : estaTrabajandoPieza
+                        ? `Finalizar Pieza #${numeroPiezaVisual}`
+                        : `Iniciar Pieza #${numeroPiezaVisual}`}
             </Button>
           </CardContent>
         </Card>
@@ -600,9 +582,16 @@ export default function ScanStation() {
                   <span>
                     Orden: <span className="font-bold">{workOrder}</span>
                   </span>
-                  <Badge variant="outline">
-                    {procesoEspecifico.estado.toUpperCase()}
-                  </Badge>
+                  <div className="flex gap-2">
+                    {estaTrabajandoPieza && (
+                      <Badge className="bg-amber-500 animate-bounce ml-1 mr-1">
+                        TRABAJANDO UNIDAD
+                      </Badge>
+                    )}
+                    <Badge variant="outline">
+                      {procesoEspecifico.estado.toUpperCase()}
+                    </Badge>
+                  </div>
                 </div>
                 <Progress
                   value={
